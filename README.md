@@ -10,8 +10,9 @@
                 |_|                              |___/
 
 UkeplanLager er et effektivt verktøy designet for lærere som ønsker å bruke mindre tid på formatering og mer tid på undervisning. Programmet kombinerer et enkelt skrivebordsprogram med en kraftig database for gjenbruk av undervisningsopplegg.
-🚀 Last ned og Installer
 
+🚀 Last ned og Installer
+------------------------------------------------------------
 Du finner den nyeste versjonen under Releases her på GitHub.
 
     Gå til Siste versjon.
@@ -23,8 +24,9 @@ Du finner den nyeste versjonen under Releases her på GitHub.
     Programmet oppdaterer seg selv automatisk når nye versjoner legges ut!
 
 ✨ Funksjoner
+------------------------------------------------------------
 📅 Effektiv Planlegger
-
+------------------------------------------------------------
     Enkel redigering: Skriv inn tema, aktiviteter og arbeidskrav i et rent grensesnitt.
 
     Rik tekst: Støtte for fet skrift, lister, farger og emojis 📝✅.
@@ -32,13 +34,13 @@ Du finner den nyeste versjonen under Releases her på GitHub.
     Smarte maler: Programmet husker faste undervisningsdager og lekser for hvert fag.
 
 🖼️ Ukeplanvisning (Preview)
-
+------------------------------------------------------------
     Live forhåndsvisning: Se hvordan ukeplanen ser ut mens du skriver.
 
     Ett-klikks kopiering: Genererer et perfekt formatert bilde av ukeplanen som kan limes rett inn i Teams, OneNote eller e-post.
 
 🗄️ Arkiv og Gjenbruk
-
+------------------------------------------------------------
     Lokal Database: Alle planer lagres lokalt på din maskin (.db-fil).
 
     Søk: Søk i gamle ukeplaner etter nøkkelord for å finne igjen tidligere opplegg.
@@ -46,13 +48,16 @@ Du finner den nyeste versjonen under Releases her på GitHub.
     Sist uke-funksjon: Hent opp planen fra forrige uke med ett klikk for å se hva dere gjorde sist.
 
 ⏳ Tidslinje
-
+------------------------------------------------------------
     Få en visuell oversikt over alle uker og temaer gjennom året.
 
     Klikk på en uke i tidslinjen for å se detaljene umiddelbart.
 
-🛠️ For utviklere (Teknisk)
 
+
+------------------------------------------------------------
+🛠️ For utviklere (Teknisk)
+------------------------------------------------------------
 Prosjektet er bygget med Electron (frontend) og Python Flask (backend).
 Krav
 
