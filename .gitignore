@@ -1,0 +1,7 @@
+node_modules
+dist
+build
+__pycache__
+*.spec
+ukeplaner_v3.db
+ukeplaner_database.db
