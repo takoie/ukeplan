@@ -88,6 +88,6 @@ npm run build
 
 👤 Forfatter
 
-Laget av Stian Taknæs.
+Laget av Stian
 
 Laget for å gjøre lærerhverdagen enklere.
