@@ -5,3 +5,4 @@ __pycache__
 *.spec
 ukeplaner_v3.db
 ukeplaner_database.db
+package-lock.json
