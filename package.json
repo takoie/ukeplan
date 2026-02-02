@@ -1,74 +1,52 @@
 {
-  "name": "ukeplanlager-pro",
+  "name": "ukeplanlager",
   "productName": "UkeplanLager",
-  "version": "1.0.1",
-  "description": "Ukeplanlegger for lærere",
+  "version": "1.2.0",
+  "description": "Verktøy for ukeplanlegging",
   "main": "main.js",
-  "author": "Stian Taknæs",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/takoie/ukeplan"
-  },
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win nsis",
-    "publish": "electron-builder --win nsis -p always"
+    "dist": "electron-builder"
+  },
+  "author": "Stian Taknæs",
+  "license": "ISC",
+  "dependencies": {
+    "electron-updater": "^6.1.1"
+  },
+  "devDependencies": {
+    "electron": "^25.2.0",
+    "electron-builder": "^24.4.0"
   },
   "build": {
     "appId": "com.ukeplanlager.pro",
-    "productName": "UkeplanLager",
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
     "publish": [
       {
         "provider": "github",
-        "owner": "DITT_GITHUB_BRUKERNAVN",
-        "repo": "ukeplanlager"
+        "owner": "takoie",
+        "repo": "ukeplan"
       }
     ],
-    "asar": true,
-    "win": {
-      "target": "nsis",
-      "icon": "icon.ico",
-      "legalTrademarks": "Stian Taknæs"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "UkeplanLager",
-      "uninstallDisplayName": "UkeplanLager",
-      "deleteAppDataOnUninstall": true,
-      "runAfterFinish": true
-    },
     "files": [
       "**/*",
-      "!**/*.py",
-      "!build/**",
-      "!dist/**",
-      "!ukeplaner_v3.db",
-      "!ukeplaner_database.db",
-      "!logo.png",
-      "!icon.ico"
-    ],
-    "extraResources": [
-      {
-        "from": "dist/app.exe",
-        "to": "app.exe"
-      }
+      "styles.css",
+      "icon.ico",
+      "index.html",
+      "renderer.js",
+      "main.js"
     ],
     "extraFiles": [
+      {
+        "from": "app.exe",
+        "to": "resources/app.exe"
+      },
       {
         "from": "logo.png",
         "to": "resources/logo.png"
       }
     ]
-  },
-  "dependencies": {
-    "electron-updater": "^6.7.3"
-  },
-  "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
   }
 }

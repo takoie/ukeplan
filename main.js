@@ -1,9 +1,8 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
-// VIKTIG: Dette hjelper Windows å gruppere vinduet riktig når det er installert
 if (process.platform === 'win32') {
     app.setAppUserModelId('com.ukeplanlager.pro');
 }
@@ -11,19 +10,15 @@ if (process.platform === 'win32') {
 let mainWindow;
 let pythonProcess;
 
-// --- AUTO UPDATE LOGIC ---
 function setupAutoUpdater() {
-    // Sjekker etter oppdateringer (logger feil i konsoll hvis dev-modus)
     autoUpdater.checkForUpdatesAndNotify().catch(err => {
         console.log('Auto-update feil (normalt i dev-modus):', err);
     });
 
-    // Sender beskjed til index.html når en oppdatering er funnet
     autoUpdater.on('update-available', () => {
         if (mainWindow) mainWindow.webContents.send('update_available');
     });
 
-    // Sender beskjed når oppdateringen er ferdig lastet ned
     autoUpdater.on('update-downloaded', () => {
         if (mainWindow) mainWindow.webContents.send('update_downloaded');
     });
@@ -32,8 +27,8 @@ function setupAutoUpdater() {
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1200,
-        height: 655, // Beholder din spesifikke høyde
-        resizable: false, 
+        height: 700,
+        resizable: false,
         frame: false,
         backgroundColor: '#36393f',
         icon: path.join(__dirname, 'icon.ico'),
@@ -41,13 +36,12 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
-            spellcheck: false // Slår av rød strek under norske ord
+            spellcheck: false
         }
     });
 
     mainWindow.loadFile('index.html');
 
-    // Start sjekk etter oppdateringer når vinduet er klart
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
         setupAutoUpdater();
@@ -68,10 +62,36 @@ ipcMain.on('app:maximize', () => {
 });
 ipcMain.on('app:close', () => { if (mainWindow) mainWindow.close(); });
 
-// Håndterer omstart for oppdatering
 ipcMain.on('restart_app', () => {
     autoUpdater.quitAndInstall();
 });
+
+// --- NY: FIL-DIALOG FOR Å VELGE DATABASE ---
+ipcMain.handle('dialog:openFile', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'Database', extensions: ['db'] }]
+    });
+    if (canceled) {
+        return null;
+    } else {
+        return filePaths[0];
+    }
+});
+
+ipcMain.handle('dialog:saveFile', async () => {
+    const { canceled, filePath } = await dialog.showSaveDialog({
+        title: 'Opprett ny database',
+        defaultPath: 'ukeplaner_database.db',
+        filters: [{ name: 'Database', extensions: ['db'] }]
+    });
+    if (canceled) {
+        return null;
+    } else {
+        return filePath;
+    }
+});
+// -------------------------------------------
 
 function startPythonBackend() {
     let backendPath;
@@ -79,22 +99,24 @@ function startPythonBackend() {
     let args;
 
     if (app.isPackaged) {
-        // I produksjon ligger app.exe i resources-mappen
         backendPath = path.join(process.resourcesPath, 'app.exe');
         cmd = backendPath;
         args = [];
     } else {
-        // I utvikling
         backendPath = path.join(__dirname, 'app.py');
-        cmd = 'python'; 
+        cmd = 'python';
         args = [backendPath];
     }
 
     pythonProcess = spawn(cmd, args);
 
-    // Valgfritt: Logg feil fra Python hvis det skjer noe
     pythonProcess.stderr.on('data', (data) => {
-        console.error(`Python Error: ${data}`);
+        const str = data.toString();
+        if (str.includes("HTTP/1.1") || str.includes("Running on")) {
+            // Ignorer vanlige logger
+        } else {
+            console.error(`Python Error: ${str}`);
+        }
     });
 }
 
