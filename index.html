@@ -15,7 +15,13 @@
     <div class="drag-header"></div>
 
     <div id="notification" style="display: none;">
+        <span id="close-notification-btn" title="Lukk varsel">&times;</span>
         <p id="notification-message"></p>
+
+        <div id="update-progress-container" style="display: none;">
+            <div id="update-progress-bar"></div>
+        </div>
+
         <button id="restart-button">Start på nytt for å oppdatere</button>
     </div>
 
@@ -296,10 +302,10 @@
                     <span class="neon-white">Ukeplan</span><span class="neon-yellow">Lager</span>
                 </div>
             </div>
-            <h3>Om UkeplanLager <span style="font-size: 0.7em; color: #94a3b8;">v1.3.0</span></h3>
+            <h3>Om UkeplanLager <span style="font-size: 0.7em; color: #94a3b8;">v1.3.1</span></h3>
             <p style="margin-top: 15px; line-height: 1.6; color: #cbd5e1;">Formålet med programmet er å gjøre det
                 enklere å skrive ukeplaner,<br> organisere innhold og publisere planer i Teams.</p>
-            <p style="margin-top: 20px; font-weight: bold; color: #faf9f8;">Laget av Stian Taknæs</p>
+            <p style="margin-top: 20px; font-weight: bold; color: #f59e0b;">Laget av Stian Taknæs</p>
             <p style="margin-top: 20px; font-style: italic; color: #22c55e; font-size: 0.9em;">Vil også rette en stor
                 takk til Marianne og Trude som må teste alle mine nye program!</p>
         </div>
@@ -327,9 +333,42 @@
         const notification = document.getElementById('notification');
         const message = document.getElementById('notification-message');
         const restartBtn = document.getElementById('restart-button');
-        ipc.on('update_available', () => { ipc.removeAllListeners('update_available'); message.innerText = 'En ny oppdatering er tilgjengelig. Laster ned...'; notification.style.display = 'block'; });
-        ipc.on('update_downloaded', () => { ipc.removeAllListeners('update_downloaded'); message.innerText = 'Oppdatering lastet ned. Den installeres ved omstart.'; restartBtn.style.display = 'inline-block'; notification.style.display = 'block'; });
-        function restartApp() { ipc.send('restart_app'); }
+        const progressContainer = document.getElementById('update-progress-container');
+        const progressBar = document.getElementById('update-progress-bar');
+        const closeBtn = document.getElementById('close-notification-btn');
+
+        // Lukkeknapp funksjonalitet
+        closeBtn.addEventListener('click', () => {
+            notification.style.display = 'none';
+        });
+
+        // 1. Oppdatering funnet
+        ipc.on('update_available', () => {
+            ipc.removeAllListeners('update_available');
+            message.innerText = 'Ny oppdatering funnet. Laster ned...';
+            notification.style.display = 'block';
+            progressContainer.style.display = 'block'; // Vis baren
+            restartBtn.style.display = 'none'; // Skjul knappen foreløpig
+        });
+
+        // 2. Laster ned (Oppdaterer baren)
+        ipc.on('download_progress', (event, percent) => {
+            const cleanPercent = Math.round(percent);
+            progressBar.style.width = cleanPercent + '%';
+            message.innerText = `Laster ned oppdatering... ${cleanPercent}%`;
+        });
+
+        // 3. Ferdig lastet ned
+        ipc.on('update_downloaded', () => {
+            ipc.removeAllListeners('update_downloaded');
+            message.innerText = 'Oppdatering klar. Installeres ved omstart.';
+            progressContainer.style.display = 'none'; // Skjul baren
+            restartBtn.style.display = 'inline-block'; // Vis knappen
+        });
+
+        document.getElementById('restart-button').addEventListener('click', () => {
+            ipc.send('restart_app');
+        });
     </script>
 </body>
 

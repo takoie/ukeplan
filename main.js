@@ -26,6 +26,20 @@ function setupAutoUpdater() {
     autoUpdater.on('update-downloaded', () => {
         if (mainWindow) mainWindow.webContents.send('update_downloaded');
     });
+    // ... eksisterende kode ...
+
+    autoUpdater.on('update-available', () => {
+        if (mainWindow) mainWindow.webContents.send('update_available');
+    });
+
+    // NY: Sender nedlastingsprosent til vinduet
+    autoUpdater.on('download-progress', (progressObj) => {
+        if (mainWindow) mainWindow.webContents.send('download_progress', progressObj.percent);
+    });
+
+    autoUpdater.on('update-downloaded', () => {
+        if (mainWindow) mainWindow.webContents.send('update_downloaded');
+    });
 }
 
 function createWindow() {
