@@ -8,3 +8,6 @@ ukeplaner_database.db
 package-lock.json
 app.exe
 README.md
+ikon.png
+convert.py
+.venv

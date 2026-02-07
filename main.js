@@ -11,6 +11,10 @@ let mainWindow;
 let pythonProcess;
 
 function setupAutoUpdater() {
+    // ENDRET: Sjekk om appen er pakket (ferdig installert).
+    // Hvis ikke (utviklermodus), hopp over oppdateringssjekk.
+    if (!app.isPackaged) return;
+
     autoUpdater.checkForUpdatesAndNotify().catch(err => {
         console.log('Auto-update feil (normalt i dev-modus):', err);
     });
@@ -31,7 +35,7 @@ function createWindow() {
         resizable: false,
         frame: false,
         backgroundColor: '#36393f',
-        icon: path.join(__dirname, 'icon.ico'),
+        icon: path.join(__dirname, 'app_ikon.ico'),
         title: "UkeplanLager",
         webPreferences: {
             nodeIntegration: true,

@@ -6,6 +6,23 @@ let autoSaveTimer;
 let isLoadingData = false;
 let currentSchoolYear = "";
 
+// --- INITIERING ---
+// VIKTIG FIX: Alt som skal skje ved oppstart legges her for å sikre at knappene fungerer
+window.addEventListener('DOMContentLoaded', () => {
+    fixLogoPath();
+    initSchoolYears();
+    updateDbPathDisplay();
+
+    // VINDUSKONTROLLER (Flyttet hit for å garantere at de virker)
+    const minBtn = document.getElementById('min-btn');
+    const maxBtn = document.getElementById('max-btn');
+    const closeBtn = document.getElementById('close-btn');
+
+    if (minBtn) minBtn.addEventListener('click', () => ipcRenderer.send('app:minimize'));
+    if (maxBtn) maxBtn.addEventListener('click', () => ipcRenderer.send('app:maximize'));
+    if (closeBtn) closeBtn.addEventListener('click', () => ipcRenderer.send('app:close'));
+});
+
 // --- SKOLEÅR LOGIKK ---
 function getInitialSchoolYear() {
     const now = new Date();
@@ -39,6 +56,7 @@ function initSchoolYears() {
 
 function populateSchoolYearDropdown(years) {
     const sel = document.getElementById('setting-skoleaar');
+    if (!sel) return;
     sel.innerHTML = '';
     years.sort();
     years.forEach(y => {
@@ -90,7 +108,8 @@ async function updateDbPathDisplay() {
     try {
         const res = await fetch(`${API_URL}/system/get-db-path`);
         const data = await res.json();
-        document.getElementById('current-db-path').textContent = data.path || "Ukjent";
+        const el = document.getElementById('current-db-path');
+        if (el) el.textContent = data.path || "Ukjent";
     } catch (e) { }
 }
 
@@ -136,29 +155,17 @@ window.flyttDatabase = async function () {
     } else { status.textContent = "Avbrutt."; }
 };
 
-document.getElementById('min-btn').addEventListener('click', () => ipcRenderer.send('app:minimize'));
-document.getElementById('max-btn').addEventListener('click', () => ipcRenderer.send('app:maximize'));
-document.getElementById('close-btn').addEventListener('click', () => ipcRenderer.send('app:close'));
-
 function fixLogoPath() {
-    const logoImg = document.querySelector('.sidebar-logo');
     const aboutLogo = document.querySelector('#modal-om img');
     let src = 'logo.png';
     const fallback = () => {
         if (process.resourcesPath && !process.defaultApp) {
             const abs = `file://${path.join(process.resourcesPath, 'logo.png')}`;
-            if (logoImg) logoImg.src = abs;
             if (aboutLogo) aboutLogo.src = abs;
         }
     };
-    if (logoImg) { logoImg.src = src; logoImg.onerror = fallback; }
     if (aboutLogo) { aboutLogo.src = src; aboutLogo.onerror = fallback; }
 }
-window.addEventListener('DOMContentLoaded', () => {
-    fixLogoPath();
-    initSchoolYears();
-    updateDbPathDisplay();
-});
 
 const toolbarOptions = [['bold', 'italic', 'underline', 'strike'], [{ 'list': 'ordered' }, { 'list': 'bullet' }], [{ 'color': [] }, { 'background': [] }], ['clean']];
 const quillOptions = { theme: 'snow', modules: { toolbar: toolbarOptions }, spellcheck: false };
@@ -168,11 +175,41 @@ quillAkt.root.setAttribute('spellcheck', 'false'); quillKrav.root.setAttribute('
 
 function setupEmojiPicker(quill) {
     const toolbar = quill.getModule('toolbar').container;
-    const emojiSelect = document.createElement('select'); emojiSelect.className = 'custom-emoji-select';
-    const defaultOpt = document.createElement('option'); defaultOpt.text = "😊"; defaultOpt.disabled = true; defaultOpt.selected = true; emojiSelect.appendChild(defaultOpt);
-    ["✅", "⚠️", "📅", "😊", "👍", "👎", "⭐", "❗", "❓", "🔥", "🎉", "📝", "🔴", "🟢", "🔵"].forEach(e => { const opt = document.createElement('option'); opt.value = e; opt.text = e; emojiSelect.appendChild(opt); });
-    emojiSelect.onchange = function () { quill.insertText(quill.getSelection(true).index, this.value); this.selectedIndex = 0; };
-    toolbar.appendChild(emojiSelect);
+
+    // ENDRET: Bruker div for å kunne styre bredden bedre, fjernet 'ql-formats'
+    const wrapper = document.createElement('div');
+    wrapper.className = 'emoji-wrapper';
+
+    // Label text
+    const label = document.createElement('span');
+    label.className = 'emoji-label';
+    label.innerText = "Ikon:";
+
+    const emojiSelect = document.createElement('select');
+    emojiSelect.className = 'custom-emoji-select';
+
+    const defaultOpt = document.createElement('option');
+    defaultOpt.text = "😊";
+    defaultOpt.disabled = true;
+    defaultOpt.selected = true;
+    emojiSelect.appendChild(defaultOpt);
+
+    ["✅", "⚠️", "📅", "😊", "👍", "👎", "⭐", "❗", "❓", "🔥", "🎉", "📝", "🔴", "🟢", "🔵"].forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e;
+        opt.text = e;
+        emojiSelect.appendChild(opt);
+    });
+
+    emojiSelect.onchange = function () {
+        quill.insertText(quill.getSelection(true).index, this.value);
+        this.selectedIndex = 0;
+    };
+
+    // Append parts to wrapper, then wrapper to toolbar
+    wrapper.appendChild(label);
+    wrapper.appendChild(emojiSelect);
+    toolbar.appendChild(wrapper);
 }
 setupEmojiPicker(quillAkt); setupEmojiPicker(quillKrav);
 
@@ -181,7 +218,6 @@ const dagerListe = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag"];
 
 document.getElementById('menu-archive-toggle').addEventListener('click', function () { this.classList.toggle('menu-open'); document.getElementById('archive-submenu').classList.toggle('open'); });
 document.getElementById('menu-export-toggle').addEventListener('click', function () { this.classList.toggle('menu-open'); document.getElementById('export-submenu').classList.toggle('open'); });
-// NY: Innstillinger toggle
 document.getElementById('menu-settings-toggle').addEventListener('click', function () { this.classList.toggle('menu-open'); document.getElementById('settings-submenu').classList.toggle('open'); });
 
 window.switchView = function (viewName) {
@@ -191,13 +227,11 @@ window.switchView = function (viewName) {
     if (viewName === 'editor') { document.getElementById('menu-editor').classList.add('active'); if (currentFagData.length > 0) loadPlan(); }
     if (viewName === 'preview') document.getElementById('menu-preview').classList.add('active');
 
-    // Håndter undermeny-valg
     if (viewName === 'search') { document.getElementById('menu-search').classList.add('active'); document.getElementById('menu-archive-toggle').classList.add('active'); loadSearchDropdown(); }
     if (viewName === 'timeline') { document.getElementById('menu-timeline').classList.add('active'); document.getElementById('menu-archive-toggle').classList.add('active'); loadTimelineDropdown(); }
     if (viewName === 'export-fag') { document.getElementById('menu-export-fag').classList.add('active'); document.getElementById('menu-export-toggle').classList.add('active'); loadExportDropdown(); document.getElementById('export-status').innerText = ""; document.getElementById('import-status').innerText = ""; }
     if (viewName === 'export-pdf') { document.getElementById('menu-export-pdf').classList.add('active'); document.getElementById('menu-export-toggle').classList.add('active'); loadPdfDropdown(); }
 
-    // NY: Innstillinger undermeny
     if (viewName === 'settings-fag') { document.getElementById('menu-settings-fag').classList.add('active'); document.getElementById('menu-settings-toggle').classList.add('active'); loadSettings(); }
     if (viewName === 'settings-db') { document.getElementById('menu-settings-db').classList.add('active'); document.getElementById('menu-settings-toggle').classList.add('active'); }
 
@@ -233,14 +267,13 @@ function updateWeekDisplay(newWeek) {
     if (newWeek < 1) newWeek = 52; if (newWeek > 53) newWeek = 1;
     document.getElementById('uke-input').value = newWeek; document.getElementById('uke-display').textContent = newWeek;
 
-    // "Neste uke"-label logikk
     const realNextWeek = getRealWeek() + 1;
     const realNextWeekFixed = realNextWeek > 53 ? 1 : realNextWeek;
     const label = document.getElementById('uke-label');
 
     if (newWeek === realNextWeekFixed) label.textContent = "Neste uke";
     else if (newWeek === getRealWeek()) label.textContent = "Denne uken";
-    else label.textContent = ""; // Tom tekst, men høyden beholdes av CSS
+    else label.textContent = "";
 
     loadPlan();
 }
@@ -278,10 +311,18 @@ async function loadPlan() {
         const res = await fetch(`${API_URL}/plan?uke=${uke}&år=${aar}&fag=${fagNavn}`); const data = await res.json();
         document.getElementById('tema-input').value = data ? data.tema : '';
         const fag = currentFagData.find(f => f.navn === fagNavn);
+
         if (data && data.aktivitet) quillAkt.root.innerHTML = data.aktivitet;
         else { quillAkt.setContents([]); if (fag && fag.dager) fag.dager.forEach(d => { quillAkt.insertText(quillAkt.getLength() - 1, d + ":", 'bold', true); quillAkt.insertText(quillAkt.getLength() - 1, "\n\n"); }); }
+
         if (data && data.arbeidskrav) quillKrav.root.innerHTML = data.arbeidskrav;
-        else { quillKrav.setContents([]); if (fag && fag.leksedager) fag.leksedager.forEach(d => { quillKrav.insertText(quillKrav.getLength() - 1, "Lekse til " + d + ":", 'bold', true); quillKrav.insertText(quillKrav.getLength() - 1, "\n\n"); }); }
+        else {
+            quillKrav.setContents([]);
+            if (fag && fag.leksedager) fag.leksedager.forEach(d => {
+                quillKrav.insertText(quillKrav.getLength() - 1, "Lekse til " + d.toLowerCase() + ":", 'bold', true);
+                quillKrav.insertText(quillKrav.getLength() - 1, "\n\n");
+            });
+        }
     } catch (e) { console.error(e); }
     finally { setTimeout(() => { isLoadingData = false; }, 100); }
 }
@@ -366,7 +407,7 @@ window.genererPDF = async function () {
         else {
             data.forEach(p => {
                 const card = document.createElement('div'); card.className = 'preview-card'; card.style.pageBreakInside = 'avoid';
-                card.innerHTML = `<div class="preview-header"><span>UKE ${p.uke}</span></div><div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">TEMA</span><p>${p.tema || '-'}</p></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">AKTIVITETER</span><div style="white-space: pre-wrap;">${p.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">ARBEIDSKRAV</span><div style="white-space: pre-wrap;">${p.arbeidskrav || '-'}</div></div></div>`;
+                card.innerHTML = `<div class="preview-header"><span>UKE ${p.uke}</span></div><div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">TEMA</span><div style="white-space: pre-wrap;">${p.tema || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">AKTIVITETER</span><div style="white-space: pre-wrap;">${p.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">ARBEIDSKRAV</span><div style="white-space: pre-wrap;">${p.arbeidskrav || '-'}</div></div></div>`;
                 printArea.appendChild(card);
             });
         }
@@ -416,7 +457,7 @@ async function loadPreviewDropdown() {
 }
 document.getElementById('oppdater-preview-btn').addEventListener('click', () => renderPreview('preview-container'));
 document.getElementById('kopier-bilde-btn').addEventListener('click', () => { const s = document.getElementById('bilde-status'); s.textContent = "Genererer..."; html2canvas(document.getElementById('preview-capture-area'), { scale: 3, backgroundColor: null, logging: false, useCORS: true }).then(c => { c.toBlob(b => { try { navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]).then(() => { s.textContent = "Kopiert!"; setTimeout(() => s.textContent = "", 3000) }) } catch (e) { s.textContent = "Feil" } }) }) });
-async function renderPreview(c, d = null) { if (!d) { try { d = await (await fetch(`${API_URL}/plan?uke=${document.getElementById('uke-input').value}&år=${document.getElementById('aar-input').value}&fag=${document.getElementById('preview-fag-select').value}`)).json() } catch (e) { } } const el = document.getElementById(c); if (!d) { el.innerHTML = '<p style="padding:20px; color: white;">Ingen plan funnet.</p>'; return } const h = `<div class="preview-card"><div class="preview-header"><span>${d.fag}</span><span>UKE ${d.uke}</span></div><div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">TEMA</span><p>${d.tema || '-'}</p></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">AKTIVITETER</span><div style="white-space: pre-wrap;">${d.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">ARBEIDSKRAV</span><div style="white-space: pre-wrap;">${d.arbeidskrav || '-'}</div></div></div></div>`; if (c === 'sok-resultat-container') el.innerHTML += h; else el.innerHTML = h }
+async function renderPreview(c, d = null) { if (!d) { try { d = await (await fetch(`${API_URL}/plan?uke=${document.getElementById('uke-input').value}&år=${document.getElementById('aar-input').value}&fag=${document.getElementById('preview-fag-select').value}`)).json() } catch (e) { } } const el = document.getElementById(c); if (!d) { el.innerHTML = '<p style="padding:20px; color: white;">Ingen plan funnet.</p>'; return } const h = `<div class="preview-card"><div class="preview-header"><span>${d.fag}</span><span>UKE ${d.uke}</span></div><div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">TEMA</span><div style="white-space: pre-wrap;">${d.tema || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">AKTIVITETER</span><div style="white-space: pre-wrap;">${d.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">ARBEIDSKRAV</span><div style="white-space: pre-wrap;">${d.arbeidskrav || '-'}</div></div></div></div>`; if (c === 'sok-resultat-container') el.innerHTML += h; else el.innerHTML = h }
 async function loadSearchDropdown() { const s = document.getElementById('sok-fag'); s.innerHTML = ''; currentFagData.forEach(f => { const o = document.createElement('option'); o.value = f.navn; o.textContent = `${f.navn} (${f.skoleaar})`; s.appendChild(o) }); s.value = document.getElementById('fag-select').value }
 window.utforSok = async function () { const c = document.getElementById('sok-resultat-container'); c.innerHTML = '<p style="color:white; padding:10px;">Søker...</p>'; try { const r = await (await fetch(`${API_URL}/sok?fag=${document.getElementById('sok-fag').value}&q=${document.getElementById('sok-tekst').value}`)).json(); c.innerHTML = ''; if (r.length === 0) c.innerHTML = '<p style="color:white; padding:10px;">Ingen treff.</p>'; r.forEach(d => renderPreview('sok-resultat-container', d)) } catch (e) { c.innerHTML = '<p style="color:red; padding:10px;">Feil.</p>' } };
 async function loadTimelineDropdown() { const s = document.getElementById('tidslinje-fag'); s.innerHTML = ''; currentFagData.forEach(f => { const o = document.createElement('option'); o.value = f.navn; o.textContent = `${f.navn} (${f.skoleaar})`; s.appendChild(o) }); s.value = document.getElementById('fag-select').value; hentTidslinje(); s.onchange = hentTidslinje }
