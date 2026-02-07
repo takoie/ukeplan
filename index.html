@@ -14,17 +14,6 @@
 
     <div class="drag-header"></div>
 
-    <div id="notification" style="display: none;">
-        <span id="close-notification-btn" title="Lukk varsel">&times;</span>
-        <p id="notification-message"></p>
-
-        <div id="update-progress-container" style="display: none;">
-            <div id="update-progress-bar"></div>
-        </div>
-
-        <button id="restart-button">Start på nytt for å oppdatere</button>
-    </div>
-
     <div id="floating-window-controls">
         <button class="control-btn" id="min-btn"><i class="fas fa-minus"></i></button>
         <button class="control-btn" id="max-btn"><i class="far fa-square"></i></button>
@@ -71,6 +60,21 @@
                         class="fas fa-book" style="width:20px;"></i> Fag og klasser</div>
                 <div class="submenu-item" onclick="switchView('settings-db')" id="menu-settings-db"><i
                         class="fas fa-database" style="width:20px;"></i> Database</div>
+            </div>
+
+            <div id="notification" style="display: none;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px;">
+                    <span style="font-weight:bold; color:#6366f1; font-size:11px;">OPPDATERING</span>
+                    <span id="close-notification-btn" title="Lukk">&times;</span>
+                </div>
+
+                <p id="notification-message"></p>
+
+                <div id="update-progress-container" style="display: none;">
+                    <div id="update-progress-bar"></div>
+                </div>
+
+                <button id="restart-button">Start på nytt</button>
             </div>
 
             <div class="menu-item" id="about-btn" style="margin-top: auto; justify-content: center;"><i
@@ -302,10 +306,10 @@
                     <span class="neon-white">Ukeplan</span><span class="neon-yellow">Lager</span>
                 </div>
             </div>
-            <h3>Om UkeplanLager <span style="font-size: 0.7em; color: #94a3b8;">v1.3.1</span></h3>
+            <h3>Om UkeplanLager <span style="font-size: 0.7em; color: #94a3b8;">v1.3.7</span></h3>
             <p style="margin-top: 15px; line-height: 1.6; color: #cbd5e1;">Formålet med programmet er å gjøre det
                 enklere å skrive ukeplaner,<br> organisere innhold og publisere planer i Teams.</p>
-            <p style="margin-top: 20px; font-weight: bold; color: #f59e0b;">Laget av Stian Taknæs</p>
+            <p style="margin-top: 20px; font-weight: bold; color: #ffffff;">Laget av Stian Taknæs</p>
             <p style="margin-top: 20px; font-style: italic; color: #22c55e; font-size: 0.9em;">Vil også rette en stor
                 takk til Marianne og Trude som må teste alle mine nye program!</p>
         </div>
@@ -345,7 +349,7 @@
         // 1. Oppdatering funnet
         ipc.on('update_available', () => {
             ipc.removeAllListeners('update_available');
-            message.innerText = 'Ny oppdatering funnet. Laster ned...';
+            message.innerText = 'Laster ned ny versjon...';
             notification.style.display = 'block';
             progressContainer.style.display = 'block'; // Vis baren
             restartBtn.style.display = 'none'; // Skjul knappen foreløpig
@@ -355,15 +359,24 @@
         ipc.on('download_progress', (event, percent) => {
             const cleanPercent = Math.round(percent);
             progressBar.style.width = cleanPercent + '%';
-            message.innerText = `Laster ned oppdatering... ${cleanPercent}%`;
+            message.innerText = `Laster ned... ${cleanPercent}%`;
         });
 
         // 3. Ferdig lastet ned
         ipc.on('update_downloaded', () => {
             ipc.removeAllListeners('update_downloaded');
-            message.innerText = 'Oppdatering klar. Installeres ved omstart.';
+            message.innerText = 'Oppdatering klar. Start på nytt.';
             progressContainer.style.display = 'none'; // Skjul baren
             restartBtn.style.display = 'inline-block'; // Vis knappen
+        });
+
+        // 4. Feil ved oppdatering
+        ipc.on('update_error', (event, messageText) => {
+            notification.style.display = 'block';
+            progressContainer.style.display = 'none';
+            message.innerText = 'Feil ved oppdatering: ' + messageText;
+            message.style.color = '#ef4444';
+            console.error("Update Error:", messageText);
         });
 
         document.getElementById('restart-button').addEventListener('click', () => {

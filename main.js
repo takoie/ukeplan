@@ -11,34 +11,28 @@ let mainWindow;
 let pythonProcess;
 
 function setupAutoUpdater() {
-    // ENDRET: Sjekk om appen er pakket (ferdig installert).
-    // Hvis ikke (utviklermodus), hopp over oppdateringssjekk.
     if (!app.isPackaged) return;
 
+    autoUpdater.logger = require("console");
+
     autoUpdater.checkForUpdatesAndNotify().catch(err => {
-        console.log('Auto-update feil (normalt i dev-modus):', err);
+        console.log('Auto-update feil:', err);
     });
 
     autoUpdater.on('update-available', () => {
         if (mainWindow) mainWindow.webContents.send('update_available');
     });
 
-    autoUpdater.on('update-downloaded', () => {
-        if (mainWindow) mainWindow.webContents.send('update_downloaded');
-    });
-    // ... eksisterende kode ...
-
-    autoUpdater.on('update-available', () => {
-        if (mainWindow) mainWindow.webContents.send('update_available');
-    });
-
-    // NY: Sender nedlastingsprosent til vinduet
     autoUpdater.on('download-progress', (progressObj) => {
         if (mainWindow) mainWindow.webContents.send('download_progress', progressObj.percent);
     });
 
     autoUpdater.on('update-downloaded', () => {
         if (mainWindow) mainWindow.webContents.send('update_downloaded');
+    });
+
+    autoUpdater.on('error', (err) => {
+        if (mainWindow) mainWindow.webContents.send('update_error', err.message);
     });
 }
 
@@ -48,7 +42,7 @@ function createWindow() {
         height: 700,
         resizable: false,
         frame: false,
-        backgroundColor: '#36393f',
+        backgroundColor: '#0f172a', // Oppdatert til å matche mørk bakgrunn
         icon: path.join(__dirname, 'app_ikon.ico'),
         title: "UkeplanLager",
         webPreferences: {
@@ -80,21 +74,26 @@ ipcMain.on('app:maximize', () => {
 });
 ipcMain.on('app:close', () => { if (mainWindow) mainWindow.close(); });
 
+// --- VIKTIG ENDRING HER: RESTART LOGIKK ---
 ipcMain.on('restart_app', () => {
-    autoUpdater.quitAndInstall();
+    // 1. Drep Python-prosessen umiddelbart
+    if (pythonProcess) {
+        process.kill(pythonProcess.pid); // Tvinger prosessen til å dø
+        pythonProcess = null;
+    }
+
+    // 2. Start installasjonen (true, true = silent install, force run)
+    autoUpdater.quitAndInstall(true, true);
 });
 
-// --- NY: FIL-DIALOG FOR Å VELGE DATABASE ---
+// --- FIL-DIALOG ---
 ipcMain.handle('dialog:openFile', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
         properties: ['openFile'],
         filters: [{ name: 'Database', extensions: ['db'] }]
     });
-    if (canceled) {
-        return null;
-    } else {
-        return filePaths[0];
-    }
+    if (canceled) return null;
+    else return filePaths[0];
 });
 
 ipcMain.handle('dialog:saveFile', async () => {
@@ -103,14 +102,11 @@ ipcMain.handle('dialog:saveFile', async () => {
         defaultPath: 'ukeplaner_database.db',
         filters: [{ name: 'Database', extensions: ['db'] }]
     });
-    if (canceled) {
-        return null;
-    } else {
-        return filePath;
-    }
+    if (canceled) return null;
+    else return filePath;
 });
-// -------------------------------------------
 
+// --- PYTHON BACKEND ---
 function startPythonBackend() {
     let backendPath;
     let cmd;
@@ -130,9 +126,8 @@ function startPythonBackend() {
 
     pythonProcess.stderr.on('data', (data) => {
         const str = data.toString();
-        if (str.includes("HTTP/1.1") || str.includes("Running on")) {
-            // Ignorer vanlige logger
-        } else {
+        // Ignorer vanlige logger
+        if (!str.includes("HTTP/1.1") && !str.includes("Running on")) {
             console.error(`Python Error: ${str}`);
         }
     });
@@ -143,8 +138,12 @@ app.on('ready', () => {
     createWindow();
 });
 
+// Sikre at Python dør når vinduet lukkes manuelt (X-knappen)
 app.on('window-all-closed', function () {
-    if (pythonProcess) pythonProcess.kill();
+    if (pythonProcess) {
+        process.kill(pythonProcess.pid);
+        pythonProcess = null;
+    }
     if (process.platform !== 'darwin') app.quit();
 });
 
