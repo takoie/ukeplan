@@ -5,9 +5,9 @@
     <meta charset="UTF-8">
     <title>UkeplanLager</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <link href="vendor/quill.snow.css" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="vendor/html2canvas.min.js"></script>
 </head>
 
 <body>
@@ -18,6 +18,15 @@
         <button class="control-btn" id="min-btn"><i class="fas fa-minus"></i></button>
         <button class="control-btn" id="max-btn"><i class="far fa-square"></i></button>
         <button class="control-btn" id="close-btn"><i class="fas fa-times"></i></button>
+    </div>
+
+    <div id="notification" style="display: none; position: fixed; top: 45px; right: 20px; z-index: 99999; background: #1e293b; color: white; padding: 12px 18px; border-radius: 8px; border-left: 5px solid #22c55e; box-shadow: 0 10px 25px rgba(0,0,0,0.5); align-items: center; gap: 15px;" class="glass-panel">
+        <div>
+            <div style="font-weight: bold; font-size: 13px;" id="notification-message">Ny oppdatering tilgjengelig!</div>
+            <div style="font-size: 11px; color: #94a3b8;">Klikk for å installere og starte på nytt.</div>
+        </div>
+        <button class="btn btn-primary btn-small" id="restart-button" style="font-size: 12px; padding: 6px 12px;"><i class="fas fa-sync"></i> Oppdater</button>
+        <button class="btn btn-small" id="close-notification-btn" style="background: transparent; color: #94a3b8; padding: 4px 8px;"><i class="fas fa-times"></i></button>
     </div>
 
     <div class="app-container">
@@ -34,8 +43,10 @@
                 Planlegger</div>
             <div class="menu-item" onclick="switchView('preview')" id="menu-preview"><i class="fas fa-camera"></i>
                 Visning</div>
+            <div class="menu-item" onclick="switchView('fag')" id="menu-fag"><i class="fas fa-book"></i>
+                Fag og klasser</div>
 
-            <div class="menu-item" id="menu-archive-toggle"><i class="fas fa-archive"></i> Arkiv <i
+            <div class="menu-item" id="menu-archive-toggle" style="margin-top: auto;"><i class="fas fa-archive"></i> Arkiv <i
                     class="fas fa-chevron-right menu-chevron"></i></div>
             <div class="submenu-container" id="archive-submenu">
                 <div class="submenu-item" onclick="switchView('search')" id="menu-search"><i class="fas fa-search"
@@ -53,15 +64,6 @@
                         class="fas fa-file-pdf" style="width:20px;"></i> PDF-rapport</div>
             </div>
 
-            <div class="menu-item" id="menu-settings-toggle"><i class="fas fa-cog"></i> Innstillinger <i
-                    class="fas fa-chevron-right menu-chevron"></i></div>
-            <div class="submenu-container" id="settings-submenu">
-                <div class="submenu-item" onclick="switchView('settings-fag')" id="menu-settings-fag"><i
-                        class="fas fa-book" style="width:20px;"></i> Fag og klasser</div>
-                <div class="submenu-item" onclick="switchView('settings-db')" id="menu-settings-db"><i
-                        class="fas fa-database" style="width:20px;"></i> Database</div>
-            </div>
-
             <div id="notification" style="display: none;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px;">
                     <span style="font-weight:bold; color:#6366f1; font-size:11px;">OPPDATERING</span>
@@ -77,8 +79,15 @@
                 <button id="restart-button">Start på nytt</button>
             </div>
 
-            <div class="menu-item" id="about-btn" style="margin-top: auto; justify-content: center;"><i
-                    class="fas fa-info-circle" style="margin-right: 5px;"></i> Om...
+            <div class="menu-item" id="menu-settings-toggle"><i class="fas fa-cog"></i> Innstillinger <i
+                    class="fas fa-chevron-right menu-chevron"></i></div>
+            <div class="submenu-container" id="settings-submenu">
+                <div class="submenu-item" onclick="switchView('settings-skoleaar')" id="menu-settings-skoleaar"><i
+                        class="fas fa-calendar-alt" style="width:20px;"></i> Skoleår</div>
+                <div class="submenu-item" onclick="switchView('settings-db')" id="menu-settings-db"><i
+                        class="fas fa-database" style="width:20px;"></i> Database</div>
+                <div class="submenu-item" onclick="switchView('about')" id="menu-about"><i
+                        class="fas fa-info-circle" style="width:20px;"></i> Om...</div>
             </div>
         </div>
 
@@ -135,21 +144,49 @@
             </div>
 
             <div id="view-preview" class="view-section">
-                <div
-                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; margin-top: 30px;">
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <h2 style="color: white; margin-right: 10px;">Forhåndsvisning</h2>
-                        <select id="preview-fag-select" style="width: 200px; margin: 0;" class="glass-input"></select>
-                        <button class="btn btn-primary" id="oppdater-preview-btn"><i class="fas fa-sync"></i>
-                            Vis</button>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; margin-top: 30px; flex-wrap: wrap; gap: 15px;">
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <h2 style="color: white; margin-right: 5px;">Visning</h2>
+                        <select id="preview-fag-select" style="width: 180px; margin: 0;" class="glass-input"></select>
+                        <button class="btn btn-primary" id="oppdater-preview-btn"><i class="fas fa-sync"></i> Vis</button>
+                        
+                        <label class="switch-label">
+                            <span class="switch">
+                                <input type="checkbox" id="toggle-all-fag">
+                                <span class="slider"></span>
+                            </span>
+                            Vis alle fag
+                        </label>
+
+                        <label class="switch-label">
+                            <span class="switch">
+                                <input type="checkbox" id="toggle-hide-header">
+                                <span class="slider"></span>
+                            </span>
+                            Skjul header
+                        </label>
                     </div>
-                    <button class="btn btn-success" id="kopier-bilde-btn"><i class="fas fa-copy"></i> Kopier
-                        bilde</button>
+
+                    <button class="btn btn-success" id="kopier-bilde-btn"><i class="fas fa-copy"></i> Kopier bilde</button>
                 </div>
-                <div id="preview-capture-area" style="width: 100%; background-color: #36393f;">
+                <div id="preview-capture-area" style="width: 100%; background: transparent;">
                     <div id="preview-container"></div>
                 </div>
                 <p id="bilde-status" style="margin-top: 10px; color: #43b581; font-weight: bold;"></p>
+            </div>
+
+            <div id="view-fag" class="view-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 30px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <h2 style="margin-bottom: 4px;">Fag og klasser</h2>
+                        <p style="color: #94a3b8; font-size: 13px;">
+                            Oversikt over dine fag for aktivt skoleår.
+                        </p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openAddFagModal()"><i class="fas fa-plus-circle"></i> Legg til fag</button>
+                </div>
+
+                <div id="fag-cards-container" class="fag-grid"></div>
             </div>
 
             <div id="view-search" class="view-section">
@@ -212,59 +249,22 @@
                 </div>
             </div>
 
-            <div id="view-settings-fag" class="view-section">
-                <h2 style="margin-bottom: 20px; margin-top: 30px;">Fag og klasser</h2>
-
-                <div style="background: #1e293b; padding: 15px; border-radius: 8px; margin-bottom: 20px;"
+            <div id="view-settings-skoleaar" class="view-section">
+                <h2 style="margin-bottom: 10px; margin-top: 30px;">Skoleår</h2>
+                <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">
+                    Administrer aktivt skoleår. Fag og ukeplaner vil filtreres etter valgt skoleår.
+                </p>
+                <div style="background: #1e293b; padding: 20px; border-radius: 8px; max-width: 500px;"
                     class="glass-panel">
-                    <label style="font-size: 11px; display:block; margin-bottom:5px; color:#94a3b8;">Skoleår</label>
+                    <label style="font-size: 11px; display:block; margin-bottom:8px; color:#94a3b8;">Aktivt skoleår</label>
                     <div style="display:flex; gap:10px; align-items:center;">
-                        <select id="setting-skoleaar" style="width: 200px; margin:0;" class="glass-input"></select>
+                        <select id="setting-skoleaar" style="width: 220px; margin:0;" class="glass-input"></select>
                         <button class="btn" onclick="opprettNyttSkoleaar()" title="Opprett neste skoleår"
-                            style="background:#27ae60; color:white; width:40px;"><i class="fas fa-plus"></i></button>
-                        <span id="school-year-status"
-                            style="font-size: 12px; color: #43b581; font-weight: bold;"></span>
+                            style="background:#27ae60; color:white; padding: 8px 14px;"><i class="fas fa-plus" style="margin-right:5px;"></i> Nytt skoleår</button>
                     </div>
+                    <span id="school-year-status"
+                        style="font-size: 12px; color: #43b581; font-weight: bold; margin-top:12px; display:block;"></span>
                 </div>
-
-                <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;"
-                    class="glass-panel">
-                    <h3 style="margin-bottom: 15px; font-size: 14px; color: white;">Legg til / rediger fag</h3>
-                    <label style="font-size: 11px;">Fagnavn</label>
-                    <input type="text" id="setting-fag-navn" placeholder="F.eks. Naturfag" spellcheck="false"
-                        class="glass-input">
-                    <div style="margin-top: 15px;">
-                        <label style="font-size: 11px; display: block; margin-bottom: 5px;">Velg
-                            undervisningsdager:</label>
-                        <div class="day-selector" id="undervisning-selector"></div>
-                    </div>
-                    <div style="margin-top: 15px;">
-                        <label style="font-size: 11px; display: block; margin-bottom: 5px; color: #f59e0b;">Velg dager
-                            med standard lekse:</label>
-                        <div class="day-selector" id="lekse-selector"></div>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 20px; align-items: center;">
-                        <button class="btn btn-primary" id="save-subject-btn">Lagre fag</button>
-                        <button class="btn btn-warning" id="rename-fag-btn"
-                            style="display: none; background:#f59e0b; color:black;">Endre navn</button>
-                        <button class="btn btn-danger" id="slett-fag-btn" style="display: none;">Slett fag</button>
-                        <button class="btn" id="cancel-edit-btn"
-                            style="background: #475569; display: none;">Avbryt</button>
-                        <span id="settings-status"
-                            style="font-size: 12px; color: #43b581; font-weight: bold; margin-left: 10px;"></span>
-                    </div>
-                </div>
-                <table class="settings-table">
-                    <thead>
-                        <tr>
-                            <th>Fagnavn</th>
-                            <th>Dager</th>
-                            <th>Leksedager</th>
-                            <th>Handling</th>
-                        </tr>
-                    </thead>
-                    <tbody id="settings-table-body"></tbody>
-                </table>
             </div>
 
             <div id="view-settings-db" class="view-section">
@@ -286,6 +286,53 @@
                 </div>
             </div>
 
+            <div id="view-about" class="view-section" style="padding-bottom: 60px;">
+                <h2 style="margin-bottom: 20px; margin-top: 30px;">Om UkeplanLager & Personvern</h2>
+                
+                <div style="background: #1e293b; padding: 25px; border-radius: 8px; margin-bottom: 25px;" class="glass-panel">
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                        <div class="logo-text" style="font-size: 28px;">
+                            <span class="neon-white">Ukeplan</span><span class="neon-yellow">Lager</span>
+                        </div>
+                        <span style="font-size: 13px; color: #94a3b8; background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 12px;">v2.0.0</span>
+                    </div>
+                    <p style="line-height: 1.6; color: #cbd5e1; font-size: 14px;">
+                        Formålet med UkeplanLager er å gjøre det enklere for lærere å skrive ukeplaner, organisere faglig innhold og publisere planer i Microsoft Teams og andre læringsplattformer.
+                    </p>
+                    <p style="margin-top: 15px; font-weight: bold; color: #ffffff;">Laget av Stian Taknæs</p>
+                    <p style="margin-top: 8px; font-style: italic; color: #22c55e; font-size: 13px;">
+                        Vil også rette en stor takk til Marianne og Trude som må teste alle mine nye program!
+                    </p>
+                </div>
+
+                <div style="background: #1e293b; padding: 25px; border-radius: 8px; border-left: 5px solid #6366f1;" class="glass-panel">
+                    <h3 style="color: white; font-size: 16px; margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-user-shield" style="color: #6366f1;"></i> Personvern og GDPR i skolen
+                    </h3>
+                    <p style="line-height: 1.6; color: #cbd5e1; font-size: 13px; margin-bottom: 12px;">
+                        UkeplanLager er utformet med sterkt fokus på personvern og dataminimering:
+                    </p>
+                    <ul style="color: #cbd5e1; font-size: 13px; line-height: 1.7; margin-left: 20px; margin-bottom: 15px;">
+                        <li><strong>Lokal datalagring:</strong> Alle fag, ukeplaner og innstillinger lagres lokalt i en SQLite-database på din egen maskin eller på din personlige sky-mappe (f.eks. OneDrive/Dropbox). Ingen data sendes til eksterne skytjenester eller tredjeparter.</li>
+                        <li><strong>Ingen elevdata i ukeplaner:</strong> Ukeplaner skal kun inneholde faglig innhold, temaer, aktiviteter og generelle arbeidskrav. Unngå å føre opp navn på elever, spesielle behov, helseopplysninger eller andre sensitive personopplysninger i ukeplaner.</li>
+                        <li><strong>GDPR-etterlevelse:</strong> Ved å holde personopplysninger unna ukeplanene sikrer skolen og læreren at publiserte ukeplaner oppfyller kravene i Personopplysningsloven.</li>
+                    </ul>
+                    
+                    <h4 style="color: white; font-size: 14px; margin-top: 20px; margin-bottom: 10px;">Nyttige ressurser og retningslinjer:</h4>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <a href="https://www.datatilsynet.no/personvern-i-ulike-sektorer/skole-og-barn/" target="_blank" class="btn btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+                            <i class="fas fa-external-link-alt"></i> Datatilsynet: Skole og barn
+                        </a>
+                        <a href="https://www.udir.no/regelverk-og-tilsyn/skole-og-opplaring/personvern-i-skolen/" target="_blank" class="btn btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+                            <i class="fas fa-external-link-alt"></i> Udir: Personvern i skolen
+                        </a>
+                        <a href="https://lovdata.no/dokument/NL/lov/2018-06-15-38" target="_blank" class="btn btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+                            <i class="fas fa-external-link-alt"></i> Lovdata: Personopplysningsloven
+                        </a>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -295,23 +342,6 @@
         <div class="modal-content glass-panel"><span class="close-modal">&times;</span>
             <h3>Visning ukeplan (<span id="prev-week-num"></span>)</h3>
             <div id="prev-week-content"></div>
-        </div>
-    </div>
-
-    <div id="modal-om" class="modal" style="display: none;">
-        <div class="modal-content glass-panel" style="text-align: center;">
-            <span class="close-modal">&times;</span>
-            <div style="margin-bottom: 20px;">
-                <div class="logo-text" style="font-size: 32px;">
-                    <span class="neon-white">Ukeplan</span><span class="neon-yellow">Lager</span>
-                </div>
-            </div>
-            <h3>Om UkeplanLager <span style="font-size: 0.7em; color: #94a3b8;">v1.3.7</span></h3>
-            <p style="margin-top: 15px; line-height: 1.6; color: #cbd5e1;">Formålet med programmet er å gjøre det
-                enklere å skrive ukeplaner,<br> organisere innhold og publisere planer i Teams.</p>
-            <p style="margin-top: 20px; font-weight: bold; color: #ffffff;">Laget av Stian Taknæs</p>
-            <p style="margin-top: 20px; font-style: italic; color: #22c55e; font-size: 0.9em;">Vil også rette en stor
-                takk til Marianne og Trude som må teste alle mine nye program!</p>
         </div>
     </div>
 
@@ -330,10 +360,37 @@
         </div>
     </div>
 
-    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <div id="modal-fag" class="modal" style="display: none;">
+        <div class="modal-content glass-panel" style="max-width: 500px; position: relative;">
+            <span class="close-modal">&times;</span>
+            <h3 id="modal-fag-title" style="margin-bottom: 15px; color: white;"><i class="fas fa-plus-circle" style="color:#6366f1; margin-right:8px;"></i>Legg til fag</h3>
+            
+            <label style="font-size: 11px; color:#cbd5e1; display:block; margin-bottom:4px;">Fagnavn og klasse</label>
+            <input type="text" id="setting-fag-navn" placeholder="Eksempel: Naturfag 1ST1" spellcheck="false" class="glass-input">
+            
+            <div style="margin-top: 15px;">
+                <label style="font-size: 11px; display: block; margin-bottom: 6px; color:#cbd5e1;">Velg undervisningsdager:</label>
+                <div class="day-selector" id="undervisning-selector"></div>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <label style="font-size: 11px; display: block; margin-bottom: 6px; color: #f59e0b;">Velg dager det gis arbeidskrav til:</label>
+                <div class="day-selector" id="lekse-selector"></div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 25px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+                <button class="btn btn-danger" id="slett-fag-btn" style="display: none; margin-right: auto;"><i class="fas fa-trash"></i> Slett fag</button>
+                <button class="btn btn-warning" id="rename-fag-btn" style="display: none; background:#f59e0b; color:black;"><i class="fas fa-edit"></i> Endre navn</button>
+                <button class="btn" id="cancel-edit-btn" style="background: #475569;">Avbryt</button>
+                <button class="btn btn-primary" id="save-subject-btn"><i class="fas fa-save"></i> Lagre fag</button>
+            </div>
+            <span id="settings-status" style="font-size: 12px; color: #43b581; font-weight: bold; margin-top: 10px; display: block; text-align: right;"></span>
+        </div>
+    </div>
+
+    <script src="vendor/quill.js"></script>
     <script src="renderer.js"></script>
     <script>
-        const { ipcRenderer: ipc } = require('electron');
         const notification = document.getElementById('notification');
         const message = document.getElementById('notification-message');
         const restartBtn = document.getElementById('restart-button');
@@ -341,47 +398,17 @@
         const progressBar = document.getElementById('update-progress-bar');
         const closeBtn = document.getElementById('close-notification-btn');
 
-        // Lukkeknapp funksjonalitet
-        closeBtn.addEventListener('click', () => {
-            notification.style.display = 'none';
-        });
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                notification.style.display = 'none';
+            });
+        }
 
-        // 1. Oppdatering funnet
-        ipc.on('update_available', () => {
-            ipc.removeAllListeners('update_available');
-            message.innerText = 'Laster ned ny versjon...';
-            notification.style.display = 'block';
-            progressContainer.style.display = 'block'; // Vis baren
-            restartBtn.style.display = 'none'; // Skjul knappen foreløpig
-        });
-
-        // 2. Laster ned (Oppdaterer baren)
-        ipc.on('download_progress', (event, percent) => {
-            const cleanPercent = Math.round(percent);
-            progressBar.style.width = cleanPercent + '%';
-            message.innerText = `Laster ned... ${cleanPercent}%`;
-        });
-
-        // 3. Ferdig lastet ned
-        ipc.on('update_downloaded', () => {
-            ipc.removeAllListeners('update_downloaded');
-            message.innerText = 'Oppdatering klar. Start på nytt.';
-            progressContainer.style.display = 'none'; // Skjul baren
-            restartBtn.style.display = 'inline-block'; // Vis knappen
-        });
-
-        // 4. Feil ved oppdatering
-        ipc.on('update_error', (event, messageText) => {
-            notification.style.display = 'block';
-            progressContainer.style.display = 'none';
-            message.innerText = 'Feil ved oppdatering: ' + messageText;
-            message.style.color = '#ef4444';
-            console.error("Update Error:", messageText);
-        });
-
-        document.getElementById('restart-button').addEventListener('click', () => {
-            ipc.send('restart_app');
-        });
+        if (restartBtn) {
+            restartBtn.addEventListener('click', () => {
+                invokeCommand('restart_app');
+            });
+        }
     </script>
 </body>
 

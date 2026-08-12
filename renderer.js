@@ -1,5 +1,13 @@
-const { ipcRenderer } = require('electron');
-const path = require('path');
+async function invokeCommand(cmd, args) {
+    if (window.__TAURI__ && window.__TAURI__.core) {
+        return await window.__TAURI__.core.invoke(cmd, args);
+    } else if (window.__TAURI__ && window.__TAURI__.tauri) {
+        return await window.__TAURI__.tauri.invoke(cmd, args);
+    }
+    console.warn("Tauri miljø ikke funnet for kommando:", cmd);
+    return null;
+}
+
 const API_URL = 'http://127.0.0.1:5000/api';
 
 let autoSaveTimer;
@@ -18,9 +26,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const maxBtn = document.getElementById('max-btn');
     const closeBtn = document.getElementById('close-btn');
 
-    if (minBtn) minBtn.addEventListener('click', () => ipcRenderer.send('app:minimize'));
-    if (maxBtn) maxBtn.addEventListener('click', () => ipcRenderer.send('app:maximize'));
-    if (closeBtn) closeBtn.addEventListener('click', () => ipcRenderer.send('app:close'));
+    if (minBtn) minBtn.addEventListener('click', () => invokeCommand('app_minimize'));
+    if (maxBtn) maxBtn.addEventListener('click', () => invokeCommand('app_maximize'));
+    if (closeBtn) closeBtn.addEventListener('click', () => invokeCommand('app_close'));
 });
 
 // --- SKOLEÅR LOGIKK ---
@@ -116,7 +124,7 @@ async function updateDbPathDisplay() {
 window.velgNyDatabase = async function () {
     const status = document.getElementById('db-status');
     status.textContent = "Venter på valg...";
-    const path = await ipcRenderer.invoke('dialog:openFile');
+    const path = await invokeCommand('open_db_dialog');
     if (path) {
         status.textContent = "Bytter database...";
         try {
@@ -130,7 +138,7 @@ window.velgNyDatabase = async function () {
 window.opprettNyDatabase = async function () {
     const status = document.getElementById('db-status');
     status.textContent = "Velg hvor...";
-    const path = await ipcRenderer.invoke('dialog:saveFile');
+    const path = await invokeCommand('save_db_dialog');
     if (path) {
         status.textContent = "Oppretter...";
         try {
@@ -144,7 +152,7 @@ window.opprettNyDatabase = async function () {
 window.flyttDatabase = async function () {
     const status = document.getElementById('db-status');
     status.textContent = "Velg destinasjon...";
-    const path = await ipcRenderer.invoke('dialog:saveFile');
+    const path = await invokeCommand('save_db_dialog');
     if (path) {
         status.textContent = "Flytter...";
         try {
@@ -157,14 +165,9 @@ window.flyttDatabase = async function () {
 
 function fixLogoPath() {
     const aboutLogo = document.querySelector('#modal-om img');
-    let src = 'logo.png';
-    const fallback = () => {
-        if (process.resourcesPath && !process.defaultApp) {
-            const abs = `file://${path.join(process.resourcesPath, 'logo.png')}`;
-            if (aboutLogo) aboutLogo.src = abs;
-        }
-    };
-    if (aboutLogo) { aboutLogo.src = src; aboutLogo.onerror = fallback; }
+    if (aboutLogo) {
+        aboutLogo.src = 'ikon.png';
+    }
 }
 
 const toolbarOptions = [['bold', 'italic', 'underline', 'strike'], [{ 'list': 'ordered' }, { 'list': 'bullet' }], [{ 'color': [] }, { 'background': [] }], ['clean']];
@@ -176,41 +179,85 @@ quillAkt.root.setAttribute('spellcheck', 'false'); quillKrav.root.setAttribute('
 function setupEmojiPicker(quill) {
     const toolbar = quill.getModule('toolbar').container;
 
-    // ENDRET: Bruker div for å kunne styre bredden bedre, fjernet 'ql-formats'
-    const wrapper = document.createElement('div');
-    wrapper.className = 'emoji-wrapper';
+    const formatsGroup = document.createElement('span');
+    formatsGroup.className = 'ql-formats';
+    formatsGroup.style.position = 'relative';
 
-    // Label text
-    const label = document.createElement('span');
-    label.className = 'emoji-label';
-    label.innerText = "Ikon:";
+    const btn = document.createElement('button');
+    btn.className = 'ql-emoji-btn';
+    btn.type = 'button';
+    btn.title = 'Sett inn ikon';
+    btn.innerHTML = '<i class="far fa-smile" style="font-size: 14px; color:#cbd5e1;"></i>';
 
-    const emojiSelect = document.createElement('select');
-    emojiSelect.className = 'custom-emoji-select';
+    const popover = document.createElement('div');
+    popover.className = 'emoji-popover glass-panel';
+    popover.style.display = 'none';
 
-    const defaultOpt = document.createElement('option');
-    defaultOpt.text = "😊";
-    defaultOpt.disabled = true;
-    defaultOpt.selected = true;
-    emojiSelect.appendChild(defaultOpt);
+    const categories = [
+        {
+            name: "Skole & Fag",
+            emojis: ["📝", "📚", "📖", "✏️", "💻", "🧪", "🔬", "🎨", "🎵", "⚽", "🏀", "🎓"]
+        },
+        {
+            name: "Status & Vurdering",
+            emojis: ["✅", "❌", "⚠️", "ℹ️", "❓", "❗", "💡", "⭐", "🔴", "🟢", "🔵", "🟡", "📌", "🚩"]
+        },
+        {
+            name: "Reaksjoner & Symboler",
+            emojis: ["👍", "👎", "😊", "😃", "🎉", "🔥", "👏", "🙌", "💯", "🌟", "💬", "📅", "⏰", "⏳"]
+        }
+    ];
 
-    ["✅", "⚠️", "📅", "😊", "👍", "👎", "⭐", "❗", "❓", "🔥", "🎉", "📝", "🔴", "🟢", "🔵"].forEach(e => {
-        const opt = document.createElement('option');
-        opt.value = e;
-        opt.text = e;
-        emojiSelect.appendChild(opt);
+    categories.forEach(cat => {
+        const catTitle = document.createElement('div');
+        catTitle.className = 'emoji-cat-title';
+        catTitle.textContent = cat.name;
+        popover.appendChild(catTitle);
+
+        const grid = document.createElement('div');
+        grid.className = 'emoji-grid';
+
+        cat.emojis.forEach(emoji => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'emoji-item';
+            item.textContent = emoji;
+            item.onclick = (e) => {
+                e.stopPropagation();
+                const sel = quill.getSelection(true);
+                const idx = sel ? sel.index : quill.getLength();
+                quill.insertText(idx, emoji + " ");
+                quill.setSelection(idx + emoji.length + 1);
+                popover.style.display = 'none';
+            };
+            grid.appendChild(item);
+        });
+        popover.appendChild(grid);
     });
 
-    emojiSelect.onchange = function () {
-        quill.insertText(quill.getSelection(true).index, this.value);
-        this.selectedIndex = 0;
+    btn.onclick = (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.emoji-popover').forEach(p => {
+            if (p !== popover) p.style.display = 'none';
+        });
+        const isHidden = popover.style.display === 'none';
+        popover.style.display = isHidden ? 'block' : 'none';
+        document.querySelectorAll('.editor-grid > div').forEach(d => d.style.zIndex = '1');
+        const col = btn.closest('.editor-grid > div');
+        if (col && isHidden) col.style.zIndex = '9999';
     };
 
-    // Append parts to wrapper, then wrapper to toolbar
-    wrapper.appendChild(label);
-    wrapper.appendChild(emojiSelect);
-    toolbar.appendChild(wrapper);
+    formatsGroup.appendChild(btn);
+    formatsGroup.appendChild(popover);
+    toolbar.appendChild(formatsGroup);
 }
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.emoji-popover') && !e.target.closest('.ql-emoji-btn')) {
+        document.querySelectorAll('.emoji-popover').forEach(p => p.style.display = 'none');
+        document.querySelectorAll('.editor-grid > div').forEach(d => d.style.zIndex = '1');
+    }
+});
 setupEmojiPicker(quillAkt); setupEmojiPicker(quillKrav);
 
 let currentFagData = [];
@@ -226,14 +273,16 @@ window.switchView = function (viewName) {
 
     if (viewName === 'editor') { document.getElementById('menu-editor').classList.add('active'); if (currentFagData.length > 0) loadPlan(); }
     if (viewName === 'preview') document.getElementById('menu-preview').classList.add('active');
+    if (viewName === 'fag') { document.getElementById('menu-fag').classList.add('active'); loadSettings(); }
 
     if (viewName === 'search') { document.getElementById('menu-search').classList.add('active'); document.getElementById('menu-archive-toggle').classList.add('active'); loadSearchDropdown(); }
     if (viewName === 'timeline') { document.getElementById('menu-timeline').classList.add('active'); document.getElementById('menu-archive-toggle').classList.add('active'); loadTimelineDropdown(); }
     if (viewName === 'export-fag') { document.getElementById('menu-export-fag').classList.add('active'); document.getElementById('menu-export-toggle').classList.add('active'); loadExportDropdown(); document.getElementById('export-status').innerText = ""; document.getElementById('import-status').innerText = ""; }
     if (viewName === 'export-pdf') { document.getElementById('menu-export-pdf').classList.add('active'); document.getElementById('menu-export-toggle').classList.add('active'); loadPdfDropdown(); }
 
-    if (viewName === 'settings-fag') { document.getElementById('menu-settings-fag').classList.add('active'); document.getElementById('menu-settings-toggle').classList.add('active'); loadSettings(); }
+    if (viewName === 'settings-skoleaar') { document.getElementById('menu-settings-skoleaar').classList.add('active'); document.getElementById('menu-settings-toggle').classList.add('active'); }
     if (viewName === 'settings-db') { document.getElementById('menu-settings-db').classList.add('active'); document.getElementById('menu-settings-toggle').classList.add('active'); }
+    if (viewName === 'about') { document.getElementById('menu-about').classList.add('active'); document.getElementById('menu-settings-toggle').classList.add('active'); document.getElementById('settings-submenu').classList.add('open'); }
 
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
     document.getElementById(`view-${viewName}`).classList.add('active');
@@ -242,9 +291,8 @@ window.switchView = function (viewName) {
 document.querySelector('.menu-item').classList.add('active');
 
 const closeBtns = document.querySelectorAll(".close-modal");
-closeBtns.forEach(btn => btn.onclick = () => { document.getElementById("modal-sist-uke").style.display = "none"; document.getElementById("modal-om").style.display = "none"; document.getElementById("modal-import").style.display = "none"; });
+closeBtns.forEach(btn => btn.onclick = () => { document.getElementById("modal-sist-uke").style.display = "none"; document.getElementById("modal-import").style.display = "none"; document.getElementById("modal-fag").style.display = "none"; });
 window.onclick = (e) => { if (e.target.classList.contains('modal')) e.target.style.display = "none"; };
-document.getElementById('about-btn').addEventListener('click', () => document.getElementById("modal-om").style.display = "block");
 
 function visModalMedPlan(data) {
     const container = document.getElementById('prev-week-content');
@@ -319,7 +367,7 @@ async function loadPlan() {
         else {
             quillKrav.setContents([]);
             if (fag && fag.leksedager) fag.leksedager.forEach(d => {
-                quillKrav.insertText(quillKrav.getLength() - 1, "Lekse til " + d.toLowerCase() + ":", 'bold', true);
+                quillKrav.insertText(quillKrav.getLength() - 1, "Arbeidskrav til " + d.toLowerCase() + ":", 'bold', true);
                 quillKrav.insertText(quillKrav.getLength() - 1, "\n\n");
             });
         }
@@ -375,7 +423,7 @@ document.getElementById('import-json-input').addEventListener('change', async (e
     reader.onload = async (evt) => {
         try {
             const jsonData = JSON.parse(evt.target.result);
-            jsonData.meta.skoleaar = currentSchoolYear;
+            if (!jsonData.meta.skoleaar) jsonData.meta.skoleaar = currentSchoolYear;
             status.textContent = "Importerer..."; const res = await fetch(`${API_URL}/fag/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(jsonData) }); const result = await res.json(); if (result.error) throw new Error(result.error); status.textContent = `Suksess! Fag: ${result.nyttNavn} (${result.antallPlaner} planer)`; status.style.color = "#43b581"; await loadSubjects();
         } catch (err) { status.textContent = "Feil: " + err.message; status.style.color = "#e74c3c"; }
         e.target.value = '';
@@ -407,7 +455,7 @@ window.genererPDF = async function () {
         else {
             data.forEach(p => {
                 const card = document.createElement('div'); card.className = 'preview-card'; card.style.pageBreakInside = 'avoid';
-                card.innerHTML = `<div class="preview-header"><span>UKE ${p.uke}</span></div><div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">TEMA</span><div style="white-space: pre-wrap;">${p.tema || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">AKTIVITETER</span><div style="white-space: pre-wrap;">${p.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">ARBEIDSKRAV</span><div style="white-space: pre-wrap;">${p.arbeidskrav || '-'}</div></div></div>`;
+                card.innerHTML = `<div class="preview-header"><span>${fag}</span><span>UKE ${p.uke}</span></div><div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">TEMA</span><div style="white-space: pre-wrap;">${p.tema || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">AKTIVITETER</span><div style="white-space: pre-wrap;">${p.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">ARBEIDSKRAV</span><div style="white-space: pre-wrap;">${p.arbeidskrav || '-'}</div></div></div>`;
                 printArea.appendChild(card);
             });
         }
@@ -417,36 +465,146 @@ window.genererPDF = async function () {
 
 function createDaySelector(c, s, k) { const el = document.getElementById(c); el.innerHTML = ''; dagerListe.forEach(d => { const x = document.createElement('div'); x.className = `day-toggle ${s.includes(d) ? k : ''}`; x.textContent = d; x.onclick = () => x.classList.toggle(k); el.appendChild(x) }) }
 function getSelectedDays(c, k) { const el = document.getElementById(c); const s = []; el.querySelectorAll(`.${k}`).forEach(x => s.push(x.textContent)); return s }
-async function loadSettings() {
-    document.getElementById('setting-fag-navn').value = ''; createDaySelector('undervisning-selector', [], 'selected'); createDaySelector('lekse-selector', [], 'selected-homework');
-    document.getElementById('save-subject-btn').textContent = 'Lagre fag';
+window.openAddFagModal = function () {
+    document.getElementById('modal-fag-title').innerHTML = '<i class="fas fa-plus-circle" style="color:#6366f1; margin-right:8px;"></i>Legg til nytt fag';
+    document.getElementById('setting-fag-navn').value = '';
+    createDaySelector('undervisning-selector', [], 'selected');
+    createDaySelector('lekse-selector', [], 'selected-homework');
+    document.getElementById('save-subject-btn').innerHTML = '<i class="fas fa-save"></i> Lagre fag';
     document.getElementById('slett-fag-btn').style.display = 'none';
     document.getElementById('rename-fag-btn').style.display = 'none';
-    document.getElementById('cancel-edit-btn').style.display = 'none';
-    await loadSubjects();
-    const t = document.getElementById('settings-table-body'); t.innerHTML = '';
-    const filtered = currentFagData.filter(f => f.skoleaar === currentSchoolYear);
-    filtered.forEach(f => { const r = document.createElement('tr'); r.innerHTML = `<td>${f.navn}</td><td>${f.dager.join(', ')}</td><td>${(f.leksedager || []).join(', ')}</td><td><button class="btn btn-small btn-primary" onclick="editSubject('${f.navn}')">Endre</button></td>`; t.appendChild(r) })
-}
-window.editSubject = function (n) {
-    const f = currentFagData.find(x => x.navn === n); document.getElementById('setting-fag-navn').value = f.navn;
-    createDaySelector('undervisning-selector', f.dager, 'selected'); createDaySelector('lekse-selector', f.leksedager || [], 'selected-homework');
-    document.getElementById('slett-fag-btn').style.display = 'inline-block'; document.getElementById('slett-fag-btn').onclick = () => deleteSubject(n);
-    document.getElementById('rename-fag-btn').style.display = 'inline-block'; document.getElementById('rename-fag-btn').onclick = () => renameSubject(n);
-    document.getElementById('cancel-edit-btn').style.display = 'inline-block'; document.getElementById('save-subject-btn').textContent = 'Oppdater fag';
+    document.getElementById('settings-status').textContent = '';
+    document.getElementById('modal-fag').style.display = 'block';
 };
-document.getElementById('cancel-edit-btn').addEventListener('click', loadSettings);
-document.getElementById('save-subject-btn').addEventListener('click', async () => { const n = document.getElementById('setting-fag-navn').value; if (!n) return; const d = getSelectedDays('undervisning-selector', 'selected'); const l = getSelectedDays('lekse-selector', 'selected-homework'); try { await fetch(`${API_URL}/fag`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ navn: n, dager: d, leksedager: l, skoleaar: currentSchoolYear }) }); await loadSettings(); const s = document.getElementById('settings-status'); s.textContent = "Lagret!"; setTimeout(() => s.textContent = "", 2000) } catch (e) { } });
-window.deleteSubject = async function (n) { if (confirm("Er du sikker? Historikk slettes ikke automatisk, men faget forsvinner fra listen.")) { try { await fetch(`${API_URL}/fag/slett`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ navn: n }) }); await loadSettings() } catch (e) { } } };
+
+async function loadSettings() {
+    await loadSubjects();
+    const container = document.getElementById('fag-cards-container');
+    if (!container) return;
+    container.innerHTML = '';
+    const filtered = currentFagData.filter(f => f.skoleaar === currentSchoolYear);
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div style="grid-column: 1 / -1; background: rgba(30, 41, 59, 0.5); padding: 40px; text-align: center; border-radius: 12px; border: 1px dashed rgba(255,255,255,0.15);" class="glass-panel">
+                <i class="fas fa-book-open" style="font-size: 36px; color: #64748b; margin-bottom: 15px; display: block;"></i>
+                <h3 style="color: white; margin-bottom: 8px;">Ingen fag registrert ennå</h3>
+                <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">Klikk på knappen under for å opprette ditt første fag.</p>
+                <button class="btn btn-primary" onclick="openAddFagModal()"><i class="fas fa-plus-circle"></i> Legg til fag</button>
+            </div>
+        `;
+        return;
+    }
+
+    filtered.forEach(f => {
+        const card = document.createElement('div');
+        card.className = 'fag-card';
+
+        const undervisningBadges = f.dager && f.dager.length > 0
+            ? f.dager.map(d => `<span class="fag-badge">${d}</span>`).join('')
+            : '<span style="font-size:12px; color:#64748b; font-style:italic;">Ingen satt</span>';
+
+        const arbeidskravBadges = f.leksedager && f.leksedager.length > 0
+            ? f.leksedager.map(d => `<span class="fag-badge fag-badge-homework">${d}</span>`).join('')
+            : '<span style="font-size:12px; color:#64748b; font-style:italic;">Ingen satt</span>';
+
+        card.innerHTML = `
+            <div>
+                <div class="fag-card-header">
+                    <div class="fag-card-title">
+                        <i class="fas fa-book" style="color:#6366f1;"></i> ${f.navn}
+                    </div>
+                    <button class="btn btn-small btn-primary" onclick="editSubject('${f.navn}')">
+                        <i class="fas fa-edit"></i> Rediger
+                    </button>
+                </div>
+                
+                <div class="fag-card-section">
+                    <div class="fag-card-label">Undervisningsdager</div>
+                    <div class="fag-badge-list">${undervisningBadges}</div>
+                </div>
+                
+                <div class="fag-card-section" style="margin-top:12px;">
+                    <div class="fag-card-label" style="color:#f59e0b;">Arbeidskrav-dager</div>
+                    <div class="fag-badge-list">${arbeidskravBadges}</div>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+window.editSubject = function (n) {
+    const f = currentFagData.find(x => x.navn === n);
+    if (!f) return;
+    document.getElementById('modal-fag-title').innerHTML = `<i class="fas fa-edit" style="color:#6366f1; margin-right:8px;"></i>Rediger ${f.navn}`;
+    document.getElementById('setting-fag-navn').value = f.navn;
+    createDaySelector('undervisning-selector', f.dager || [], 'selected');
+    createDaySelector('lekse-selector', f.leksedager || [], 'selected-homework');
+    document.getElementById('slett-fag-btn').style.display = 'inline-block';
+    document.getElementById('slett-fag-btn').onclick = () => deleteSubject(n);
+    document.getElementById('rename-fag-btn').style.display = 'inline-block';
+    document.getElementById('rename-fag-btn').onclick = () => renameSubject(n);
+    document.getElementById('save-subject-btn').innerHTML = '<i class="fas fa-save"></i> Oppdater fag';
+    document.getElementById('settings-status').textContent = '';
+    document.getElementById('modal-fag').style.display = 'block';
+};
+
+document.getElementById('cancel-edit-btn').addEventListener('click', () => {
+    document.getElementById('modal-fag').style.display = 'none';
+});
+
+document.getElementById('save-subject-btn').addEventListener('click', async () => {
+    const n = document.getElementById('setting-fag-navn').value.trim();
+    if (!n) return alert("Vennligst oppgi fagnavn.");
+    const d = getSelectedDays('undervisning-selector', 'selected');
+    const l = getSelectedDays('lekse-selector', 'selected-homework');
+    try {
+        await fetch(`${API_URL}/fag`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ navn: n, dager: d, leksedager: l, skoleaar: currentSchoolYear })
+        });
+        await loadSettings();
+        document.getElementById('modal-fag').style.display = 'none';
+    } catch (e) {
+        alert("Feil ved lagring av fag.");
+    }
+});
+
+window.deleteSubject = async function (n) {
+    if (confirm(`Er du sikker på at du vil slette faget "${n}"? Ukeplaner i historikken beholdes, men faget fjernes fra listen.`)) {
+        try {
+            await fetch(`${API_URL}/fag/slett`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ navn: n })
+            });
+            await loadSettings();
+            document.getElementById('modal-fag').style.display = 'none';
+        } catch (e) { }
+    }
+};
+
 window.renameSubject = async function (oldName) {
     const newName = prompt("Skriv inn nytt navn på faget:", oldName);
     if (newName && newName !== oldName) {
         try {
-            const res = await fetch(`${API_URL}/fag/endre_navn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gammeltNavn: oldName, nyttNavn: newName }) });
-            if (!res.ok) { const err = await res.json(); alert(err.error); return; }
+            const res = await fetch(`${API_URL}/fag/endre_navn`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gammeltNavn: oldName, nyttNavn: newName })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                alert(err.error);
+                return;
+            }
             await loadSettings();
-            const s = document.getElementById('settings-status'); s.textContent = "Navn endret!"; setTimeout(() => s.textContent = "", 2000);
-        } catch (e) { alert("Feil ved endring av navn"); }
+            document.getElementById('modal-fag').style.display = 'none';
+        } catch (e) {
+            alert("Feil ved endring av navn.");
+        }
     }
 };
 
@@ -455,9 +613,134 @@ async function loadPreviewDropdown() {
     const filtered = currentFagData.filter(f => f.skoleaar === currentSchoolYear);
     filtered.forEach(f => { const o = document.createElement('option'); o.value = f.navn; o.textContent = f.navn; s.appendChild(o) }); const e = document.getElementById('fag-select').value; if (e) s.value = e; renderPreview('preview-container')
 }
+document.getElementById('toggle-all-fag').addEventListener('change', (e) => {
+    document.getElementById('preview-fag-select').disabled = e.target.checked;
+    renderPreview('preview-container');
+});
+
+document.getElementById('toggle-hide-header').addEventListener('change', () => {
+    renderPreview('preview-container');
+});
+
+function buildCardHtml(d, hideHeader = false, cardId = null) {
+    const headerHtml = hideHeader ? '' : `<div class="preview-header"><span>${d.fag}</span><span>UKE ${d.uke}</span></div>`;
+    const idAttr = cardId ? `id="${cardId}"` : '';
+    return `<div ${idAttr} class="preview-card" style="margin-bottom: 0; background:#ffffff; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-radius:0; overflow:hidden;">${headerHtml}<div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">TEMA</span><div style="white-space: pre-wrap;">${d.tema || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">AKTIVITETER</span><div style="white-space: pre-wrap;">${d.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">ARBEIDSKRAV</span><div style="white-space: pre-wrap;">${d.arbeidskrav || '-'}</div></div></div></div>`;
+}
+
+async function renderPreview(c, d = null) {
+    const el = document.getElementById(c);
+    const hideHeader = document.getElementById('toggle-hide-header').checked;
+    const showAll = document.getElementById('toggle-all-fag').checked;
+    const mainKopierBtn = document.getElementById('kopier-bilde-btn');
+
+    if (c === 'preview-container') {
+        if (showAll) {
+            if (mainKopierBtn) mainKopierBtn.style.display = 'none';
+        } else {
+            if (mainKopierBtn) mainKopierBtn.style.display = 'inline-flex';
+        }
+    }
+
+    if (c === 'preview-container' && showAll) {
+        el.innerHTML = '<p style="padding:20px; color: white;">Laster alle fag...</p>';
+        const uke = document.getElementById('uke-input').value;
+        const aar = document.getElementById('aar-input').value;
+        const subjects = currentFagData.filter(f => f.skoleaar === currentSchoolYear);
+
+        if (subjects.length === 0) {
+            el.innerHTML = '<p style="padding:20px; color: white;">Ingen fag registrert for dette skoleåret.</p>';
+            return;
+        }
+
+        try {
+            const promises = subjects.map(f => fetch(`${API_URL}/plan?uke=${uke}&år=${aar}&fag=${encodeURIComponent(f.navn)}`).then(r => r.ok ? r.json() : null));
+            const plans = await Promise.all(promises);
+
+            el.innerHTML = '';
+            let count = 0;
+            plans.forEach((plan, idx) => {
+                if (plan && (plan.tema || plan.aktivitet || plan.arbeidskrav)) {
+                    const cardId = `fag-card-${idx}`;
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'fag-card-block';
+                    wrapper.style.marginBottom = '30px';
+
+                    wrapper.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 2px;">
+                            <span style="font-weight: 700; color: #f8fafc; font-size: 14px;"><i class="fas fa-book" style="color: #6366f1; margin-right: 6px;"></i>${plan.fag} (Uke ${plan.uke})</span>
+                            <button class="btn btn-small btn-success" onclick="kopierFagBilde('${cardId}', '${plan.fag}')" style="display: inline-flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-copy"></i> Kopier ${plan.fag}
+                            </button>
+                        </div>
+                        ${buildCardHtml(plan, hideHeader, cardId)}
+                    `;
+                    el.appendChild(wrapper);
+                    count++;
+                }
+            });
+
+            if (count === 0) {
+                el.innerHTML = '<p style="padding:20px; color: white;">Ingen ukeplaner funnet for noen fag denne uken.</p>';
+            }
+        } catch (e) {
+            el.innerHTML = '<p style="padding:20px; color: red;">Feil ved henting av ukeplaner.</p>';
+        }
+        return;
+    }
+
+    if (!d) {
+        try {
+            const fag = document.getElementById('preview-fag-select').value;
+            if (fag) {
+                d = await (await fetch(`${API_URL}/plan?uke=${document.getElementById('uke-input').value}&år=${document.getElementById('aar-input').value}&fag=${encodeURIComponent(fag)}`)).json();
+            }
+        } catch (e) { }
+    }
+
+    if (!d) {
+        el.innerHTML = '<p style="padding:20px; color: white;">Ingen plan funnet.</p>';
+        return;
+    }
+
+    const h = buildCardHtml(d, hideHeader, 'single-preview-card');
+    if (c === 'sok-resultat-container') el.innerHTML += h;
+    else el.innerHTML = h;
+}
+
+window.kopierFagBilde = function (cardId, fagnavn) {
+    const s = document.getElementById('bilde-status');
+    const target = document.getElementById(cardId);
+    if (!target) return;
+
+    s.textContent = `Genererer bilde for ${fagnavn}...`;
+    s.style.color = "#43b581";
+
+    html2canvas(target, { scale: 3, backgroundColor: null, logging: false, useCORS: true }).then(c => {
+        c.toBlob(b => {
+            try {
+                navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]).then(() => {
+                    s.textContent = `Kopiert ${fagnavn}! ✅`;
+                    setTimeout(() => { if (s.textContent.includes(fagnavn)) s.textContent = ""; }, 3000);
+                });
+            } catch (e) {
+                s.textContent = "Feil ved kopiering til utklippstavle.";
+                s.style.color = "#ef4444";
+            }
+        });
+    }).catch(() => {
+        s.textContent = "Feil ved bildegenerering.";
+        s.style.color = "#ef4444";
+    });
+};
+
 document.getElementById('oppdater-preview-btn').addEventListener('click', () => renderPreview('preview-container'));
-document.getElementById('kopier-bilde-btn').addEventListener('click', () => { const s = document.getElementById('bilde-status'); s.textContent = "Genererer..."; html2canvas(document.getElementById('preview-capture-area'), { scale: 3, backgroundColor: null, logging: false, useCORS: true }).then(c => { c.toBlob(b => { try { navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]).then(() => { s.textContent = "Kopiert!"; setTimeout(() => s.textContent = "", 3000) }) } catch (e) { s.textContent = "Feil" } }) }) });
-async function renderPreview(c, d = null) { if (!d) { try { d = await (await fetch(`${API_URL}/plan?uke=${document.getElementById('uke-input').value}&år=${document.getElementById('aar-input').value}&fag=${document.getElementById('preview-fag-select').value}`)).json() } catch (e) { } } const el = document.getElementById(c); if (!d) { el.innerHTML = '<p style="padding:20px; color: white;">Ingen plan funnet.</p>'; return } const h = `<div class="preview-card"><div class="preview-header"><span>${d.fag}</span><span>UKE ${d.uke}</span></div><div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">TEMA</span><div style="white-space: pre-wrap;">${d.tema || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">AKTIVITETER</span><div style="white-space: pre-wrap;">${d.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">ARBEIDSKRAV</span><div style="white-space: pre-wrap;">${d.arbeidskrav || '-'}</div></div></div></div>`; if (c === 'sok-resultat-container') el.innerHTML += h; else el.innerHTML = h }
+document.getElementById('kopier-bilde-btn').addEventListener('click', () => {
+    const singleCard = document.getElementById('single-preview-card') || document.querySelector('#preview-container .preview-card');
+    if (!singleCard) return alert("Ingen plan å kopiere.");
+    const fag = document.getElementById('preview-fag-select').value || 'Ukeplan';
+    window.kopierFagBilde(singleCard.id || 'single-preview-card', fag);
+});
 async function loadSearchDropdown() { const s = document.getElementById('sok-fag'); s.innerHTML = ''; currentFagData.forEach(f => { const o = document.createElement('option'); o.value = f.navn; o.textContent = `${f.navn} (${f.skoleaar})`; s.appendChild(o) }); s.value = document.getElementById('fag-select').value }
 window.utforSok = async function () { const c = document.getElementById('sok-resultat-container'); c.innerHTML = '<p style="color:white; padding:10px;">Søker...</p>'; try { const r = await (await fetch(`${API_URL}/sok?fag=${document.getElementById('sok-fag').value}&q=${document.getElementById('sok-tekst').value}`)).json(); c.innerHTML = ''; if (r.length === 0) c.innerHTML = '<p style="color:white; padding:10px;">Ingen treff.</p>'; r.forEach(d => renderPreview('sok-resultat-container', d)) } catch (e) { c.innerHTML = '<p style="color:red; padding:10px;">Feil.</p>' } };
 async function loadTimelineDropdown() { const s = document.getElementById('tidslinje-fag'); s.innerHTML = ''; currentFagData.forEach(f => { const o = document.createElement('option'); o.value = f.navn; o.textContent = `${f.navn} (${f.skoleaar})`; s.appendChild(o) }); s.value = document.getElementById('fag-select').value; hentTidslinje(); s.onchange = hentTidslinje }
@@ -473,12 +756,30 @@ function initDate() {
     else document.getElementById('uke-label').textContent = "";
 }
 
+async function checkTauriUpdate() {
+    try {
+        if (window.__TAURI__ && window.__TAURI__.updater) {
+            const update = await window.__TAURI__.updater.check();
+            if (update) {
+                const notif = document.getElementById('notification');
+                if (notif) {
+                    document.getElementById('notification-message').textContent = `Ny versjon v${update.version} er tilgjengelig!`;
+                    notif.style.display = 'flex';
+                }
+            }
+        }
+    } catch (e) { }
+}
+
 async function initApp() {
     initDate();
     const checkBackend = async () => {
         try {
             const res = await fetch(`${API_URL}/fag`);
-            if (res.ok) loadSubjects();
+            if (res.ok) {
+                loadSubjects();
+                checkTauriUpdate();
+            }
             else setTimeout(checkBackend, 500);
         } catch (e) { setTimeout(checkBackend, 500); }
     };

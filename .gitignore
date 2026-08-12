@@ -5,9 +5,14 @@ __pycache__
 *.spec
 ukeplaner_v3.db
 ukeplaner_database.db
-package-lock.json
 app.exe
 README.md
 ikon.png
 convert.py
 .venv
+old-electron-builds
+src-tauri/target
+src-tauri/target_build
+src-tauri/gen/schemas
+latest.json
+graphify-out
