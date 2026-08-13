@@ -984,9 +984,7 @@ select:focus {
     border: none;
     cursor: pointer;
     font-size: 11px;
-    display: none;
     font-weight: 600;
-    width: 100%;
     transition: background 0.2s;
 }
 

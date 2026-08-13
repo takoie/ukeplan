@@ -817,14 +817,33 @@ async function checkTauriUpdate() {
             const update = await window.__TAURI__.updater.check();
             if (update) {
                 const notif = document.getElementById('notification');
+                const restartBtn = document.getElementById('restart-button');
                 if (notif) {
                     document.getElementById('notification-message').textContent = `Ny versjon v${update.version} er tilgjengelig!`;
                     notif.style.display = 'flex';
+                }
+                if (restartBtn) {
+                    restartBtn.onclick = async () => {
+                        restartBtn.disabled = true;
+                        restartBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Oppdaterer...';
+                        try {
+                            await update.downloadAndInstall();
+                            await invokeCommand('restart_app');
+                        } catch (e) {
+                            restartBtn.disabled = false;
+                            restartBtn.innerHTML = '<i class="fas fa-sync"></i> Oppdater';
+                        }
+                    };
                 }
             }
         }
     } catch (e) { }
 }
+
+document.getElementById('close-notification-btn')?.addEventListener('click', () => {
+    const notif = document.getElementById('notification');
+    if (notif) notif.style.display = 'none';
+});
 
 async function initApp() {
     initDate();
