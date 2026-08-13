@@ -367,7 +367,7 @@ async function loadPlan() {
         else {
             quillKrav.setContents([]);
             if (fag && fag.leksedager) fag.leksedager.forEach(d => {
-                quillKrav.insertText(quillKrav.getLength() - 1, "Arbeidskrav til " + d.toLowerCase() + ":", 'bold', true);
+                quillKrav.insertText(quillKrav.getLength() - 1, "Til " + d.toLowerCase() + ":", 'bold', true);
                 quillKrav.insertText(quillKrav.getLength() - 1, "\n\n");
             });
         }
