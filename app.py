@@ -82,12 +82,16 @@ def api_get_db_path():
 def api_set_db_path():
     ny_sti = request.json.get('path')
     if not ny_sti: return jsonify({"error": "Ingen sti"}), 400
-    if not os.path.exists(ny_sti):
-        try: init_db(ny_sti)
-        except Exception as e: return jsonify({"error": str(e)}), 500
+
+    # Hvis sti er en folder, bruk standard filnavn
+    if os.path.isdir(ny_sti):
+        ny_sti = os.path.join(ny_sti, 'ukeplan.db')
+
     try:
-        with open(get_config_file(), 'w') as f: json.dump({"db_path": ny_sti}, f)
+        # Initialisér databasen på den nye stien
         init_db(ny_sti)
+        # Oppdater config
+        with open(get_config_file(), 'w') as f: json.dump({"db_path": ny_sti}, f)
         return jsonify({"message": "OK"})
     except Exception as e: return jsonify({"error": str(e)}), 500
 
@@ -95,15 +99,19 @@ def api_set_db_path():
 def api_move_db():
     ny_sti = request.json.get('path')
     if not ny_sti: return jsonify({"error": "Ingen sti"}), 400
-    
+
+    # Hvis sti er en folder, bruk standard filnavn
+    if os.path.isdir(ny_sti):
+        ny_sti = os.path.join(ny_sti, 'ukeplan.db')
+
     current_path = get_active_db_path()
     try:
         # Kopier filen til ny destinasjon
         shutil.copy2(current_path, ny_sti)
-        
+
         # Oppdater config til å peke på ny fil
         with open(get_config_file(), 'w') as f: json.dump({"db_path": ny_sti}, f)
-        
+
         return jsonify({"message": "OK"})
     except Exception as e:
         return jsonify({"error": f"Kunne ikke flytte: {str(e)}"}), 500
