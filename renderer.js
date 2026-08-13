@@ -17,9 +17,16 @@ let currentSchoolYear = "";
 // --- INITIERING ---
 // VIKTIG FIX: Alt som skal skje ved oppstart legges her for å sikre at knappene fungerer
 window.addEventListener('DOMContentLoaded', () => {
+    console.log("App initialiserer... API_URL:", API_URL);
     fixLogoPath();
     initSchoolYears();
     updateDbPathDisplay();
+
+    // Test API-tilkobling
+    fetch(`${API_URL}/system/get-db-path`)
+        .then(r => r.json())
+        .then(d => console.log("✓ API-tilkobling OK, database-sti:", d.path))
+        .catch(e => console.error("✗ API-tilkoblingsfeil:", e.message));
 
     // VINDUSKONTROLLER (Flyttet hit for å garantere at de virker)
     const minBtn = document.getElementById('min-btn');
@@ -118,7 +125,11 @@ async function updateDbPathDisplay() {
         const data = await res.json();
         const el = document.getElementById('current-db-path');
         if (el) el.textContent = data.path || "Ukjent";
-    } catch (e) { }
+    } catch (e) {
+        console.error("Feil ved henting av database-sti:", e);
+        const el = document.getElementById('current-db-path');
+        if (el) el.textContent = "Feil ved tilkobling (er Flask-serveren på?)";
+    }
 }
 
 window.velgNyDatabase = async function () {
@@ -130,8 +141,17 @@ window.velgNyDatabase = async function () {
         try {
             const res = await fetch(`${API_URL}/system/set-db-path`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: path }) });
             if (res.ok) { status.textContent = "Oppdatert! Laster på nytt..."; setTimeout(() => location.reload(), 1000); }
-            else { status.textContent = "Feil ved bytte."; status.style.color = "#e74c3c"; }
-        } catch (e) { status.textContent = "Feil."; status.style.color = "#e74c3c"; }
+            else {
+                const err = await res.json();
+                status.textContent = "Feil: " + (err.error || "Ukjent feil");
+                status.style.color = "#e74c3c";
+                console.error("Database-bytte feil:", err);
+            }
+        } catch (e) {
+            status.textContent = "Feil: " + e.message;
+            status.style.color = "#e74c3c";
+            console.error("Database-bytte exception:", e);
+        }
     } else { status.textContent = "Avbrutt."; }
 };
 
@@ -144,8 +164,17 @@ window.opprettNyDatabase = async function () {
         try {
             const res = await fetch(`${API_URL}/system/set-db-path`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: path }) });
             if (res.ok) { status.textContent = "Opprettet! Laster på nytt..."; setTimeout(() => location.reload(), 1000); }
-            else { status.textContent = "Feil ved opprettelse."; status.style.color = "#e74c3c"; }
-        } catch (e) { status.textContent = "Feil."; status.style.color = "#e74c3c"; }
+            else {
+                const err = await res.json();
+                status.textContent = "Feil: " + (err.error || "Ukjent feil");
+                status.style.color = "#e74c3c";
+                console.error("Database-opprettelse feil:", err);
+            }
+        } catch (e) {
+            status.textContent = "Feil: " + e.message;
+            status.style.color = "#e74c3c";
+            console.error("Database-opprettelse exception:", e);
+        }
     } else { status.textContent = "Avbrutt."; }
 };
 
@@ -158,8 +187,17 @@ window.flyttDatabase = async function () {
         try {
             const res = await fetch(`${API_URL}/system/move-db`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: path }) });
             if (res.ok) { status.textContent = "Flyttet! Laster på nytt..."; setTimeout(() => location.reload(), 1000); }
-            else { status.textContent = "Feil ved flytting."; status.style.color = "#e74c3c"; }
-        } catch (e) { status.textContent = "Feil."; status.style.color = "#e74c3c"; }
+            else {
+                const err = await res.json();
+                status.textContent = "Feil: " + (err.error || "Ukjent feil");
+                status.style.color = "#e74c3c";
+                console.error("Database-flytt feil:", err);
+            }
+        } catch (e) {
+            status.textContent = "Feil: " + e.message;
+            status.style.color = "#e74c3c";
+            console.error("Database-flytt exception:", e);
+        }
     } else { status.textContent = "Avbrutt."; }
 };
 
