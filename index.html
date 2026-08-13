@@ -123,14 +123,14 @@
                                 <i class="fas fa-chevron-right week-nav-btn" id="next-week-nav"></i>
                             </div>
 
-                            <input type="number" id="uke-input" style="display: none;" spellcheck="false">
-                            <input type="number" id="aar-input" style="display: none;" spellcheck="false">
+                            <input type="number" id="uke-input" style="display: none;" spellcheck="false" autocomplete="off">
+                            <input type="number" id="aar-input" style="display: none;" spellcheck="false" autocomplete="off">
                         </div>
                     </div>
                     <div>
                         <div class="col-header col-tema">Tema</div>
                         <textarea id="tema-input" class="glass-input" placeholder="Tema for uken..."
-                            spellcheck="false"></textarea>
+                            spellcheck="false" autocomplete="off"></textarea>
                     </div>
                     <div>
                         <div class="col-header col-akt">Aktivitet</div>
@@ -194,7 +194,7 @@
                 <div style="display: flex; gap: 10px; margin-bottom: 20px; background: #1e293b; padding: 15px; border-radius: 8px;"
                     class="glass-panel">
                     <select id="sok-fag" style="width: 200px; margin:0;" class="glass-input"></select>
-                    <input type="text" id="sok-tekst" placeholder="Søk..." style="flex:1; margin:0;" spellcheck="false"
+                    <input type="text" id="sok-tekst" placeholder="Søk..." style="flex:1; margin:0;" spellcheck="false" autocomplete="off"
                         class="glass-input">
                     <button class="btn btn-primary" onclick="utforSok()">Søk</button>
                 </div>
@@ -239,11 +239,11 @@
                         <div><label style="font-size:11px;">Velg Fag</label><select id="pdf-fag-select"
                                 style="width:250px;" class="glass-input"></select></div>
                         <div><label style="font-size:11px;">År</label><input type="number" id="pdf-aar"
-                                style="width:80px;" class="glass-input"></div>
+                                style="width:80px;" class="glass-input" autocomplete="off"></div>
                         <div><label style="font-size:11px;">Startuke</label><input type="number" id="pdf-start"
-                                style="width:80px;" class="glass-input"></div>
+                                style="width:80px;" class="glass-input" autocomplete="off"></div>
                         <div><label style="font-size:11px;">Sluttuke</label><input type="number" id="pdf-slutt"
-                                style="width:80px;" class="glass-input"></div>
+                                style="width:80px;" class="glass-input" autocomplete="off"></div>
                     </div>
                     <button class="btn btn-primary" onclick="genererPDF()"><i class="fas fa-print"></i> Lag PDF</button>
                 </div>
@@ -352,7 +352,7 @@
                 <br><span style="color:#ef4444;">Obs: Dette vil overskrive teksten i editoren din.</span>
             </p><textarea id="import-textarea" placeholder="Lim inn kode her (UPLAN::...)"
                 style="height: 100px; width:100%; box-sizing: border-box; background:#334155; color:white; border:none; padding:10px; border-radius:4px;"
-                class="glass-input"></textarea>
+                class="glass-input" autocomplete="off"></textarea>
             <p id="import-error-msg"
                 style="color: #ef4444; font-size: 12px; font-weight: bold; min-height: 18px; margin-top:5px;"></p>
             <div style="text-align: right; margin-top: 10px;"><button class="btn btn-primary"
@@ -366,7 +366,7 @@
             <h3 id="modal-fag-title" style="margin-bottom: 15px; color: white;"><i class="fas fa-plus-circle" style="color:#6366f1; margin-right:8px;"></i>Legg til fag</h3>
             
             <label style="font-size: 11px; color:#cbd5e1; display:block; margin-bottom:4px;">Fagnavn og klasse</label>
-            <input type="text" id="setting-fag-navn" placeholder="Eksempel: Naturfag 1ST1" spellcheck="false" class="glass-input">
+            <input type="text" id="setting-fag-navn" placeholder="Eksempel: Naturfag 1ST1" spellcheck="false" autocomplete="off" class="glass-input">
             
             <div style="margin-top: 15px;">
                 <label style="font-size: 11px; display: block; margin-bottom: 6px; color:#cbd5e1;">Velg undervisningsdager:</label>
