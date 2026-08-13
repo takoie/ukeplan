@@ -171,23 +171,25 @@ select.glass-input option:checked {
     text-shadow: 0 0 15px rgba(250, 204, 21, 0.6);
 }
 
-.sidebar-header {
-    color: #94a3b8;
-    font-weight: 600;
-    margin-bottom: 12px;
-    text-transform: uppercase;
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    margin-top: 5px;
-    padding-left: 0;
-    opacity: 0.7;
-    text-align: center;
+/* NAV */
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.sidebar-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.07);
+    margin: 12px 4px 16px;
+    margin-top: auto;
 }
 
 /* MENU ITEMS */
 .menu-item {
     padding: 10px 12px;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     border-radius: 8px;
     color: #94a3b8;
     cursor: pointer;
@@ -195,7 +197,8 @@ select.glass-input option:checked {
     font-size: 13px;
     display: flex;
     align-items: center;
-    transition: all 0.2s;
+    gap: 10px;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
     -webkit-app-region: no-drag;
     border: 1px solid transparent;
 }
@@ -212,9 +215,15 @@ select.glass-input option:checked {
     box-shadow: 0 0 10px rgba(99, 102, 241, 0.1);
 }
 
-.menu-item i {
-    width: 25px;
+.menu-item span {
+    flex: 1;
+}
+
+.menu-item i:not(.menu-chevron) {
+    width: 16px;
     text-align: center;
+    font-size: 13px;
+    flex-shrink: 0;
 }
 
 /* Submenu */
@@ -222,11 +231,12 @@ select.glass-input option:checked {
     overflow: hidden;
     max-height: 0;
     transition: max-height 0.3s ease-out;
-    padding-left: 10px;
+    padding-left: 14px;
 }
 
 .submenu-container.open {
     max-height: 200px;
+    margin-bottom: 4px;
 }
 
 .submenu-item {
@@ -236,7 +246,17 @@ select.glass-input option:checked {
     cursor: pointer;
     border-radius: 6px;
     margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     -webkit-app-region: no-drag;
+}
+
+.submenu-item i {
+    width: 14px;
+    text-align: center;
+    font-size: 12px;
+    flex-shrink: 0;
 }
 
 .submenu-item:hover {

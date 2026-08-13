@@ -1,6 +1,6 @@
 [package]
 name = "ukeplanlager"
-version = "2.0.1"
+version = "2.3.0"
 description = "Verktøy for ukeplanlegging"
 authors = ["Stian Taknæs"]
 edition = "2021"

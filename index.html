@@ -38,57 +38,32 @@
                 </div>
             </div>
 
-            <div class="sidebar-header">Meny</div>
-            <div class="menu-item active" onclick="switchView('editor')" id="menu-editor"><i class="fas fa-edit"></i>
-                Planlegger</div>
-            <div class="menu-item" onclick="switchView('preview')" id="menu-preview"><i class="fas fa-camera"></i>
-                Visning</div>
-            <div class="menu-item" onclick="switchView('fag')" id="menu-fag"><i class="fas fa-book"></i>
-                Fag og klasser</div>
+            <nav class="sidebar-nav">
+                <div class="menu-item active" onclick="switchView('editor')" id="menu-editor"><i class="fas fa-edit"></i><span>Planlegger</span></div>
+                <div class="menu-item" onclick="switchView('preview')" id="menu-preview"><i class="fas fa-camera"></i><span>Visning</span></div>
+                <div class="menu-item" onclick="switchView('fag')" id="menu-fag"><i class="fas fa-book"></i><span>Fag og klasser</span></div>
 
-            <div class="menu-item" id="menu-archive-toggle" style="margin-top: auto;"><i class="fas fa-archive"></i> Arkiv <i
-                    class="fas fa-chevron-right menu-chevron"></i></div>
-            <div class="submenu-container" id="archive-submenu">
-                <div class="submenu-item" onclick="switchView('search')" id="menu-search"><i class="fas fa-search"
-                        style="width:20px;"></i> Søk ukeplaner</div>
-                <div class="submenu-item" onclick="switchView('timeline')" id="menu-timeline"><i class="fas fa-stream"
-                        style="width:20px;"></i> Tidslinje</div>
-            </div>
+                <div class="sidebar-divider"></div>
 
-            <div class="menu-item" id="menu-export-toggle"><i class="fas fa-file-export"></i> Eksport / Import <i
-                    class="fas fa-chevron-right menu-chevron"></i></div>
-            <div class="submenu-container" id="export-submenu">
-                <div class="submenu-item" onclick="switchView('export-fag')" id="menu-export-fag"><i
-                        class="fas fa-file-code" style="width:20px;"></i> JSON verktøy</div>
-                <div class="submenu-item" onclick="switchView('export-pdf')" id="menu-export-pdf"><i
-                        class="fas fa-file-pdf" style="width:20px;"></i> PDF-rapport</div>
-            </div>
-
-            <div id="notification" style="display: none;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px;">
-                    <span style="font-weight:bold; color:#6366f1; font-size:11px;">OPPDATERING</span>
-                    <span id="close-notification-btn" title="Lukk">&times;</span>
+                <div class="menu-item" id="menu-archive-toggle"><i class="fas fa-archive"></i><span>Arkiv</span><i class="fas fa-chevron-right menu-chevron"></i></div>
+                <div class="submenu-container" id="archive-submenu">
+                    <div class="submenu-item" onclick="switchView('search')" id="menu-search"><i class="fas fa-search"></i><span>Søk ukeplaner</span></div>
+                    <div class="submenu-item" onclick="switchView('timeline')" id="menu-timeline"><i class="fas fa-stream"></i><span>Tidslinje</span></div>
                 </div>
 
-                <p id="notification-message"></p>
-
-                <div id="update-progress-container" style="display: none;">
-                    <div id="update-progress-bar"></div>
+                <div class="menu-item" id="menu-export-toggle"><i class="fas fa-file-export"></i><span>Eksport / Import</span><i class="fas fa-chevron-right menu-chevron"></i></div>
+                <div class="submenu-container" id="export-submenu">
+                    <div class="submenu-item" onclick="switchView('export-fag')" id="menu-export-fag"><i class="fas fa-file-code"></i><span>JSON verktøy</span></div>
+                    <div class="submenu-item" onclick="switchView('export-pdf')" id="menu-export-pdf"><i class="fas fa-file-pdf"></i><span>PDF-rapport</span></div>
                 </div>
 
-                <button id="restart-button">Start på nytt</button>
-            </div>
-
-            <div class="menu-item" id="menu-settings-toggle"><i class="fas fa-cog"></i> Innstillinger <i
-                    class="fas fa-chevron-right menu-chevron"></i></div>
-            <div class="submenu-container" id="settings-submenu">
-                <div class="submenu-item" onclick="switchView('settings-skoleaar')" id="menu-settings-skoleaar"><i
-                        class="fas fa-calendar-alt" style="width:20px;"></i> Skoleår</div>
-                <div class="submenu-item" onclick="switchView('settings-db')" id="menu-settings-db"><i
-                        class="fas fa-database" style="width:20px;"></i> Database</div>
-                <div class="submenu-item" onclick="switchView('about')" id="menu-about"><i
-                        class="fas fa-info-circle" style="width:20px;"></i> Om...</div>
-            </div>
+                <div class="menu-item" id="menu-settings-toggle"><i class="fas fa-cog"></i><span>Innstillinger</span><i class="fas fa-chevron-right menu-chevron"></i></div>
+                <div class="submenu-container" id="settings-submenu">
+                    <div class="submenu-item" onclick="switchView('settings-skoleaar')" id="menu-settings-skoleaar"><i class="fas fa-calendar-alt"></i><span>Skoleår</span></div>
+                    <div class="submenu-item" onclick="switchView('settings-db')" id="menu-settings-db"><i class="fas fa-database"></i><span>Database</span></div>
+                    <div class="submenu-item" onclick="switchView('about')" id="menu-about"><i class="fas fa-info-circle"></i><span>Om...</span></div>
+                </div>
+            </nav>
         </div>
 
         <div class="main-content">
@@ -144,21 +119,17 @@
             </div>
 
             <div id="view-preview" class="view-section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; margin-top: 30px; flex-wrap: wrap; gap: 15px;">
+                <h2 style="color: white; text-align: center; margin-top: 30px; margin-bottom: 20px;">Visning</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
                     <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                        <h2 style="color: white; margin-right: 5px;">Visning</h2>
-                        <div style="display: flex; gap: 8px; align-items: center;">
+                        <div style="display: flex; gap: 8px; align-items: center; height: 36px;">
                             <label style="color: #cbd5e1; font-size: 12px;">Uke:</label>
-                            <input type="number" id="preview-uke-input" style="width: 70px;" class="glass-input" min="1" max="53" autocomplete="off">
+                            <input type="number" id="preview-uke-input" style="width: 70px; margin: 0; height: 36px; box-sizing: border-box;" class="glass-input" min="1" max="53" autocomplete="off">
                         </div>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <label style="color: #cbd5e1; font-size: 12px;">År:</label>
-                            <input type="number" id="preview-aar-input" style="width: 70px;" class="glass-input" autocomplete="off">
-                        </div>
-                        <select id="preview-fag-select" style="width: 200px; margin: 0;" class="glass-input"></select>
-                        <button class="btn btn-primary" id="oppdater-preview-btn"><i class="fas fa-sync"></i> Vis</button>
-                        
-                        <label class="switch-label">
+                        <select id="preview-fag-select" style="width: 200px; margin: 0; height: 36px; box-sizing: border-box;" class="glass-input"></select>
+                        <button class="btn btn-primary" id="oppdater-preview-btn" style="height: 36px; box-sizing: border-box;"><i class="fas fa-sync"></i> Vis</button>
+
+                        <label class="switch-label" style="height: 36px; box-sizing: border-box;">
                             <span class="switch">
                                 <input type="checkbox" id="toggle-all-fag">
                                 <span class="slider"></span>
@@ -166,7 +137,7 @@
                             Vis alle fag
                         </label>
 
-                        <label class="switch-label">
+                        <label class="switch-label" style="height: 36px; box-sizing: border-box;">
                             <span class="switch">
                                 <input type="checkbox" id="toggle-hide-header">
                                 <span class="slider"></span>
@@ -175,7 +146,7 @@
                         </label>
                     </div>
 
-                    <button class="btn btn-success" id="kopier-bilde-btn"><i class="fas fa-copy"></i> Kopier bilde</button>
+                    <button class="btn btn-success" id="kopier-bilde-btn" style="height: 36px; box-sizing: border-box;"><i class="fas fa-copy"></i> Kopier bilde</button>
                 </div>
                 <div id="preview-capture-area" style="width: 100%; background: transparent;">
                     <div id="preview-container"></div>

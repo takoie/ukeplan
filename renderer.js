@@ -655,7 +655,6 @@ async function loadPreviewDropdown() {
     const nextWeek = getRealWeek() + 1;
     const nextWeekFixed = nextWeek > 53 ? 1 : nextWeek;
     document.getElementById('preview-uke-input').value = nextWeekFixed;
-    document.getElementById('preview-aar-input').value = new Date().getFullYear();
 
     renderPreview('preview-container')
 }
@@ -669,10 +668,6 @@ document.getElementById('toggle-hide-header').addEventListener('change', () => {
 });
 
 document.getElementById('preview-uke-input').addEventListener('change', () => {
-    renderPreview('preview-container');
-});
-
-document.getElementById('preview-aar-input').addEventListener('change', () => {
     renderPreview('preview-container');
 });
 
@@ -752,7 +747,7 @@ async function renderPreview(c, d = null) {
             const fag = document.getElementById('preview-fag-select').value;
             if (fag) {
                 const previewUke = document.getElementById('preview-uke-input')?.value || document.getElementById('uke-input').value;
-                const previewAar = document.getElementById('preview-aar-input')?.value || document.getElementById('aar-input').value;
+                const previewAar = document.getElementById('aar-input').value;
                 d = await (await fetch(`${API_URL}/plan?uke=${previewUke}&år=${previewAar}&fag=${encodeURIComponent(fag)}`)).json();
             }
         } catch (e) { }
