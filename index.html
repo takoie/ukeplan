@@ -147,7 +147,15 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; margin-top: 30px; flex-wrap: wrap; gap: 15px;">
                     <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
                         <h2 style="color: white; margin-right: 5px;">Visning</h2>
-                        <select id="preview-fag-select" style="width: 180px; margin: 0;" class="glass-input"></select>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <label style="color: #cbd5e1; font-size: 12px;">Uke:</label>
+                            <input type="number" id="preview-uke-input" style="width: 70px;" class="glass-input" min="1" max="53" autocomplete="off">
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <label style="color: #cbd5e1; font-size: 12px;">År:</label>
+                            <input type="number" id="preview-aar-input" style="width: 70px;" class="glass-input" autocomplete="off">
+                        </div>
+                        <select id="preview-fag-select" style="width: 200px; margin: 0;" class="glass-input"></select>
                         <button class="btn btn-primary" id="oppdater-preview-btn"><i class="fas fa-sync"></i> Vis</button>
                         
                         <label class="switch-label">
@@ -329,6 +337,41 @@
                         <a href="https://lovdata.no/dokument/NL/lov/2018-06-15-38" target="_blank" class="btn btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
                             <i class="fas fa-external-link-alt"></i> Lovdata: Personopplysningsloven
                         </a>
+                    </div>
+                </div>
+
+                <div style="background: #1e293b; padding: 25px; border-radius: 8px; border-left: 5px solid #8b5cf6;" class="glass-panel">
+                    <h3 style="color: white; font-size: 16px; margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-book" style="color: #8b5cf6;"></i> Lisenser og åpen kildekode
+                    </h3>
+                    <p style="line-height: 1.6; color: #cbd5e1; font-size: 13px; margin-bottom: 15px;">
+                        UkeplanLager bruker følgende åpen kildekode-biblioteker og ressurser:
+                    </p>
+                    <div id="licenses-container" style="max-height: 400px; overflow-y: auto; color: #cbd5e1; font-size: 12px; line-height: 1.6;">
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #6366f1;">Tauri</strong> - BSD 2-Clause License
+                            <div style="color: #94a3b8; margin-top: 4px;">Desktop application framework</div>
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #6366f1;">Python Flask</strong> - BSD License
+                            <div style="color: #94a3b8; margin-top: 4px;">Web application framework</div>
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #6366f1;">Quill</strong> - BSD License
+                            <div style="color: #94a3b8; margin-top: 4px;">Rich text editor</div>
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #6366f1;">Font Awesome</strong> - Font Awesome Free License
+                            <div style="color: #94a3b8; margin-top: 4px;">Icon library</div>
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #6366f1;">html2canvas</strong> - MIT License
+                            <div style="color: #94a3b8; margin-top: 4px;">Screenshot library</div>
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #6366f1;">SQLite</strong> - Public Domain
+                            <div style="color: #94a3b8; margin-top: 4px;">Database engine</div>
+                        </div>
                     </div>
                 </div>
             </div>

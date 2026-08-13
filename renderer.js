@@ -611,7 +611,15 @@ window.renameSubject = async function (oldName) {
 async function loadPreviewDropdown() {
     const s = document.getElementById('preview-fag-select'); s.innerHTML = '';
     const filtered = currentFagData.filter(f => f.skoleaar === currentSchoolYear);
-    filtered.forEach(f => { const o = document.createElement('option'); o.value = f.navn; o.textContent = f.navn; s.appendChild(o) }); const e = document.getElementById('fag-select').value; if (e) s.value = e; renderPreview('preview-container')
+    filtered.forEach(f => { const o = document.createElement('option'); o.value = f.navn; o.textContent = f.navn; s.appendChild(o) }); const e = document.getElementById('fag-select').value; if (e) s.value = e;
+
+    // Initialize preview week/year with next week as default
+    const nextWeek = getRealWeek() + 1;
+    const nextWeekFixed = nextWeek > 53 ? 1 : nextWeek;
+    document.getElementById('preview-uke-input').value = nextWeekFixed;
+    document.getElementById('preview-aar-input').value = new Date().getFullYear();
+
+    renderPreview('preview-container')
 }
 document.getElementById('toggle-all-fag').addEventListener('change', (e) => {
     document.getElementById('preview-fag-select').disabled = e.target.checked;
@@ -619,6 +627,18 @@ document.getElementById('toggle-all-fag').addEventListener('change', (e) => {
 });
 
 document.getElementById('toggle-hide-header').addEventListener('change', () => {
+    renderPreview('preview-container');
+});
+
+document.getElementById('preview-uke-input').addEventListener('change', () => {
+    renderPreview('preview-container');
+});
+
+document.getElementById('preview-aar-input').addEventListener('change', () => {
+    renderPreview('preview-container');
+});
+
+document.getElementById('preview-fag-select').addEventListener('change', () => {
     renderPreview('preview-container');
 });
 
@@ -693,7 +713,9 @@ async function renderPreview(c, d = null) {
         try {
             const fag = document.getElementById('preview-fag-select').value;
             if (fag) {
-                d = await (await fetch(`${API_URL}/plan?uke=${document.getElementById('uke-input').value}&år=${document.getElementById('aar-input').value}&fag=${encodeURIComponent(fag)}`)).json();
+                const previewUke = document.getElementById('preview-uke-input')?.value || document.getElementById('uke-input').value;
+                const previewAar = document.getElementById('preview-aar-input')?.value || document.getElementById('aar-input').value;
+                d = await (await fetch(`${API_URL}/plan?uke=${previewUke}&år=${previewAar}&fag=${encodeURIComponent(fag)}`)).json();
             }
         } catch (e) { }
     }
