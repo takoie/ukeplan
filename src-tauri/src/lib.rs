@@ -11,6 +11,16 @@ pub struct AppState {
 fn kill_python_process(state: &AppState) {
     if let Ok(mut guard) = state.python_process.lock() {
         if let Some(mut child) = guard.take() {
+            let pid = child.id();
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                let _ = Command::new("cmd")
+                    .args(["/C", &format!("taskkill /F /PID {} /T", pid)])
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .output();
+            }
             let _ = child.kill();
         }
     }
@@ -160,8 +170,31 @@ fn save_db_dialog(app: AppHandle) -> Option<String> {
 }
 
 #[tauri::command]
+fn prepare_for_update(state: State<'_, AppState>) {
+    kill_python_process(&state);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let _ = Command::new("cmd")
+            .args(["/C", "taskkill /F /IM app.exe /T"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+    }
+}
+
+#[tauri::command]
 fn restart_app(app: AppHandle, state: State<'_, AppState>) {
     kill_python_process(&state);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let _ = Command::new("cmd")
+            .args(["/C", "taskkill /F /IM app.exe /T"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+    }
     tauri::process::restart(&app.env());
 }
 
@@ -192,6 +225,7 @@ pub fn run() {
             app_close,
             open_db_dialog,
             save_db_dialog,
+            prepare_for_update,
             restart_app
         ])
         .run(tauri::generate_context!())

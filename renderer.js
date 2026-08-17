@@ -845,12 +845,19 @@ async function checkTauriUpdate(manual = false) {
                 }
                 if (restartBtn) {
                     restartBtn.disabled = false;
-                    restartBtn.innerHTML = '<i class="fas fa-sync"></i> Oppdater';
+                    restartBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Oppdater nå';
                     restartBtn.onclick = async () => {
                         restartBtn.disabled = true;
-                        restartBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Laster ned...';
+                        restartBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Forbereder...';
                         if (progressContainer) progressContainer.style.display = 'block';
-                        if (notifSubMsg) notifSubMsg.textContent = 'Laster ned oppdatering...';
+                        if (notifSubMsg) notifSubMsg.textContent = 'Forbereder oppdatering...';
+
+                        // 1. Frigjør backend-prosesser slik at filer ikke er låst ved overskriving
+                        try {
+                            await invokeCommand('prepare_for_update');
+                        } catch (e) {
+                            console.warn("Kunne ikke kjøre prepare_for_update:", e);
+                        }
 
                         let downloaded = 0;
                         let contentLength = 0;
@@ -861,27 +868,33 @@ async function checkTauriUpdate(manual = false) {
                                     case 'Started':
                                         contentLength = event.data.contentLength || 0;
                                         if (progressContainer) progressContainer.style.display = 'block';
+                                        restartBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Laster ned...';
+                                        if (notifSubMsg) notifSubMsg.textContent = 'Laster ned...';
                                         break;
                                     case 'Progress':
                                         downloaded += event.data.chunkLength;
                                         if (contentLength > 0 && progressBar) {
                                             const pct = Math.min(100, Math.round((downloaded / contentLength) * 100));
                                             progressBar.style.width = `${pct}%`;
-                                            if (notifSubMsg) notifSubMsg.textContent = `Laster ned: ${pct}%`;
+                                            const mb = (downloaded / (1024 * 1024)).toFixed(1);
+                                            const totalMb = (contentLength / (1024 * 1024)).toFixed(1);
+                                            if (notifSubMsg) notifSubMsg.textContent = `Laster ned: ${pct}% (${mb}/${totalMb} MB)`;
                                         }
                                         break;
                                     case 'Finished':
                                         if (progressBar) progressBar.style.width = '100%';
                                         if (notifSubMsg) notifSubMsg.textContent = 'Installerer og starter på nytt...';
+                                        restartBtn.innerHTML = '<i class="fas fa-check"></i> Installert!';
                                         break;
                                 }
                             });
 
                             if (notifSubMsg) notifSubMsg.textContent = 'Starter på nytt...';
+                            await new Promise(r => setTimeout(r, 600));
                             await invokeCommand('restart_app');
                         } catch (err) {
                             console.error("Oppdateringsfeil:", err);
-                            if (notifSubMsg) notifSubMsg.textContent = 'Kunne ikke fullføre oppdateringen: ' + (err.message || err);
+                            if (notifSubMsg) notifSubMsg.textContent = 'Feil: ' + (err.message || err);
                             restartBtn.disabled = false;
                             restartBtn.innerHTML = '<i class="fas fa-redo"></i> Prøv igjen';
                         }
