@@ -64,14 +64,25 @@ fn start_python_backend(app: &AppHandle, state: &AppState) {
     }
 
     if spawned_child.is_none() {
-        let exe_candidates = vec![
-            app.path().resource_dir().ok().map(|p| p.join("app.exe")),
-            app.path().resource_dir().ok().map(|p| p.join("_up_").join("app.exe")),
-            Some(root_dir.join("app.exe")),
-            Some(root_dir.join("src-tauri").join("app.exe")),
-        ];
+        let curr_exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf()));
+        let resource_dir = app.path().resource_dir().ok();
 
-        for cand in exe_candidates.into_iter().flatten() {
+        let mut exe_candidates = Vec::new();
+        if let Some(ref r) = resource_dir {
+            exe_candidates.push(r.join("app.exe"));
+            exe_candidates.push(r.join("_up_").join("app.exe"));
+            exe_candidates.push(r.join("resources").join("app.exe"));
+        }
+        if let Some(ref d) = curr_exe_dir {
+            exe_candidates.push(d.join("app.exe"));
+            exe_candidates.push(d.join("resources").join("app.exe"));
+            exe_candidates.push(d.join("resources").join("_up_").join("app.exe"));
+            exe_candidates.push(d.join("_up_").join("app.exe"));
+        }
+        exe_candidates.push(root_dir.join("app.exe"));
+        exe_candidates.push(root_dir.join("src-tauri").join("app.exe"));
+
+        for cand in exe_candidates {
             if cand.exists() {
                 let mut cmd = Command::new(&cand);
                 if let Some(parent) = cand.parent() {

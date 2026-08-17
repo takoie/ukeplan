@@ -67,22 +67,20 @@ if (!fs.existsSync(iconsDir)) {
     }
 }
 
+const distAppExe = path.join(__dirname, 'dist', 'app.exe');
 const appExeSrc = path.join(__dirname, 'app.exe');
 const appExeDst = path.join(__dirname, 'src-tauri', 'app.exe');
-if (fs.existsSync(appExeSrc)) {
+
+if (fs.existsSync(distAppExe)) {
     try {
-        // Sjekk om filene allerede er identiske (unngå unødvendig kopiering som kan forårsake låsing)
-        let needsCopy = true;
-        if (fs.existsSync(appExeDst)) {
-            const srcStat = fs.statSync(appExeSrc);
-            const dstStat = fs.statSync(appExeDst);
-            if (srcStat.size === dstStat.size && srcStat.mtimeMs <= dstStat.mtimeMs) {
-                needsCopy = false;
-            }
-        }
-        if (needsCopy) {
-            fs.copyFileSync(appExeSrc, appExeDst);
-        }
+        fs.copyFileSync(distAppExe, appExeSrc);
+        fs.copyFileSync(distAppExe, appExeDst);
+    } catch (e) {
+        console.warn('Advarsel ved kopiering fra dist/app.exe:', e.message);
+    }
+} else if (fs.existsSync(appExeSrc)) {
+    try {
+        fs.copyFileSync(appExeSrc, appExeDst);
     } catch (e) {
         console.warn('Advarsel: Kunne ikke kopiere app.exe til src-tauri:', e.message);
     }

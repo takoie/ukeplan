@@ -811,38 +811,114 @@ function initDate() {
     else document.getElementById('uke-label').textContent = "";
 }
 
-async function checkTauriUpdate() {
+async function checkTauriUpdate(manual = false) {
+    const notif = document.getElementById('notification');
+    const notifMsg = document.getElementById('notification-message');
+    const notifSubMsg = document.getElementById('notification-submessage');
+    const restartBtn = document.getElementById('restart-button');
+    const progressContainer = document.getElementById('update-progress-container');
+    const progressBar = document.getElementById('update-progress-bar');
+    const manualStatus = document.getElementById('manual-update-status');
+    const manualBtn = document.getElementById('check-update-manual-btn');
+
+    if (manual && manualStatus) {
+        manualStatus.textContent = "Søker etter oppdateringer...";
+        manualStatus.style.color = "#94a3b8";
+        if (manualBtn) manualBtn.disabled = true;
+    }
+
     try {
         if (window.__TAURI__ && window.__TAURI__.updater) {
             const update = await window.__TAURI__.updater.check();
             if (update) {
-                const notif = document.getElementById('notification');
-                const restartBtn = document.getElementById('restart-button');
+                console.log("Oppdatering funnet:", update);
+                if (manual && manualStatus) {
+                    manualStatus.textContent = `Ny versjon v${update.version} er tilgjengelig!`;
+                    manualStatus.style.color = "#22c55e";
+                }
                 if (notif) {
-                    document.getElementById('notification-message').textContent = `Ny versjon v${update.version} er tilgjengelig!`;
+                    if (notifMsg) notifMsg.textContent = `Ny versjon v${update.version} er tilgjengelig!`;
+                    if (notifSubMsg) notifSubMsg.textContent = 'Klikk for å laste ned og restarte automatisk.';
+                    if (progressContainer) progressContainer.style.display = 'none';
+                    if (progressBar) progressBar.style.width = '0%';
                     notif.style.display = 'flex';
                 }
                 if (restartBtn) {
+                    restartBtn.disabled = false;
+                    restartBtn.innerHTML = '<i class="fas fa-sync"></i> Oppdater';
                     restartBtn.onclick = async () => {
                         restartBtn.disabled = true;
-                        restartBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Oppdaterer...';
+                        restartBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Laster ned...';
+                        if (progressContainer) progressContainer.style.display = 'block';
+                        if (notifSubMsg) notifSubMsg.textContent = 'Laster ned oppdatering...';
+
+                        let downloaded = 0;
+                        let contentLength = 0;
+
                         try {
-                            await update.downloadAndInstall();
+                            await update.downloadAndInstall((event) => {
+                                switch (event.event) {
+                                    case 'Started':
+                                        contentLength = event.data.contentLength || 0;
+                                        if (progressContainer) progressContainer.style.display = 'block';
+                                        break;
+                                    case 'Progress':
+                                        downloaded += event.data.chunkLength;
+                                        if (contentLength > 0 && progressBar) {
+                                            const pct = Math.min(100, Math.round((downloaded / contentLength) * 100));
+                                            progressBar.style.width = `${pct}%`;
+                                            if (notifSubMsg) notifSubMsg.textContent = `Laster ned: ${pct}%`;
+                                        }
+                                        break;
+                                    case 'Finished':
+                                        if (progressBar) progressBar.style.width = '100%';
+                                        if (notifSubMsg) notifSubMsg.textContent = 'Installerer og starter på nytt...';
+                                        break;
+                                }
+                            });
+
+                            if (notifSubMsg) notifSubMsg.textContent = 'Starter på nytt...';
                             await invokeCommand('restart_app');
-                        } catch (e) {
+                        } catch (err) {
+                            console.error("Oppdateringsfeil:", err);
+                            if (notifSubMsg) notifSubMsg.textContent = 'Kunne ikke fullføre oppdateringen: ' + (err.message || err);
                             restartBtn.disabled = false;
-                            restartBtn.innerHTML = '<i class="fas fa-sync"></i> Oppdater';
+                            restartBtn.innerHTML = '<i class="fas fa-redo"></i> Prøv igjen';
                         }
                     };
                 }
+            } else {
+                if (manual && manualStatus) {
+                    manualStatus.textContent = "Du har allerede nyeste versjon!";
+                    manualStatus.style.color = "#43b581";
+                }
+            }
+        } else {
+            if (manual && manualStatus) {
+                manualStatus.textContent = "Oppdateringsfunksjon krever installert desktop-app.";
+                manualStatus.style.color = "#f59e0b";
             }
         }
-    } catch (e) { }
+    } catch (e) {
+        console.error("Feil ved sjekk etter oppdatering:", e);
+        if (manual && manualStatus) {
+            manualStatus.textContent = "Feil ved sjekk: " + (e.message || e);
+            manualStatus.style.color = "#ef4444";
+        }
+    } finally {
+        if (manual && manualBtn) {
+            manualBtn.disabled = false;
+        }
+    }
 }
 
 document.getElementById('close-notification-btn')?.addEventListener('click', () => {
     const notif = document.getElementById('notification');
     if (notif) notif.style.display = 'none';
+});
+
+document.getElementById('check-update-manual-btn')?.addEventListener('click', () => {
+    checkTauriUpdate(true);
 });
 
 async function initApp() {

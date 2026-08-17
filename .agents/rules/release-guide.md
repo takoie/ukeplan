@@ -1,0 +1,34 @@
+# UkeplanLager Release & Deployment Guide
+
+Når brukeren ber om å opprette en ny release, bygge installasjonsfiler eller pushe en oppdatering, skal du følge denne prosedyren:
+
+## 1. Versjonshåndtering
+Oppdater versjonsnummeret konsekvent i følgende filer:
+1. `package.json`: `"version": "<VERSJON>"`
+2. `src-tauri/tauri.conf.json`: `"version": "<VERSJON>"`
+3. `src-tauri/Cargo.toml`: `version = "<VERSJON>"`
+4. `index.html`: Versjonsmerket i Om-seksjonen (`#app-version-badge`) til `v<VERSJON>`
+
+## 2. Byggeprosessen
+Kjør:
+```powershell
+npm run build:exe
+```
+Dette kjører `python build_helper.py`, som:
+- Lukker eventuelle kjørende app- og cargo-prosesser
+- Kjører `node copy_icons.js` for å synkronisere ikoner og web-ressurser
+- Kjører `npx tauri build` med `CARGO_TARGET_DIR=src-tauri/target_build`
+- Genererer installasjonsfiler i `src-tauri/target_build/release/bundle/nsis/`
+- Kopierer automatisk den nysignerte `latest.json` til rotmappen
+
+## 3. GitHub Git & Release
+For å publisere en release:
+```powershell
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock index.html latest.json
+git commit -m "release: v<VERSJON>"
+git tag -a v<VERSJON> -m "UkeplanLager v<VERSJON>"
+git push origin main --tags
+gh release create v<VERSJON> "src-tauri/target_build/release/bundle/nsis/UkeplanLager_<VERSJON>_x64-setup.exe" "latest.json" --title "UkeplanLager v<VERSJON>" --notes "<Endringsbeskrivelse>"
+```
+
+Dette trigger at eksisterende installasjoner automatisk oppdager den nye versjonen via GitHub releases og oppdaterer seg selv.

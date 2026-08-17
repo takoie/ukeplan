@@ -20,10 +20,13 @@
         <button class="control-btn" id="close-btn"><i class="fas fa-times"></i></button>
     </div>
 
-    <div id="notification" style="display: none; position: fixed; top: 45px; right: 20px; z-index: 99999; background: #1e293b; color: white; padding: 12px 18px; border-radius: 8px; border-left: 5px solid #22c55e; box-shadow: 0 10px 25px rgba(0,0,0,0.5); align-items: center; gap: 15px;" class="glass-panel">
-        <div>
+    <div id="notification" style="display: none; position: fixed; top: 45px; right: 20px; z-index: 99999; background: #1e293b; color: white; padding: 12px 18px; border-radius: 8px; border-left: 5px solid #22c55e; box-shadow: 0 10px 25px rgba(0,0,0,0.5); align-items: center; gap: 15px; min-width: 320px;" class="glass-panel">
+        <div style="flex: 1;">
             <div style="font-weight: bold; font-size: 13px;" id="notification-message">Ny oppdatering tilgjengelig!</div>
-            <div style="font-size: 11px; color: #94a3b8;">Klikk for å installere og starte på nytt.</div>
+            <div style="font-size: 11px; color: #94a3b8;" id="notification-submessage">Klikk for å laste ned og restarte automatisk.</div>
+            <div id="update-progress-container" style="display: none; width: 100%; background: #334155; height: 6px; border-radius: 3px; margin-top: 6px; overflow: hidden;">
+                <div id="update-progress-bar" style="width: 0%; height: 100%; background: #22c55e; transition: width 0.2s;"></div>
+            </div>
         </div>
         <button class="btn btn-primary btn-small" id="restart-button" style="font-size: 12px; padding: 6px 12px;"><i class="fas fa-sync"></i> Oppdater</button>
         <button class="btn btn-small" id="close-notification-btn" style="background: transparent; color: #94a3b8; padding: 4px 8px;"><i class="fas fa-times"></i></button>
@@ -273,7 +276,7 @@
                         <div class="logo-text" style="font-size: 28px;">
                             <span class="neon-white">Ukeplan</span><span class="neon-yellow">Lager</span>
                         </div>
-                        <span style="font-size: 13px; color: #94a3b8; background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 12px;">v2.0.0</span>
+                        <span id="app-version-badge" style="font-size: 13px; color: #94a3b8; background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 12px;">v2.4.0</span>
                     </div>
                     <p style="line-height: 1.6; color: #cbd5e1; font-size: 14px;">
                         Formålet med UkeplanLager er å gjøre det enklere for lærere å skrive ukeplaner, organisere faglig innhold og publisere planer i Microsoft Teams og andre læringsplattformer.
@@ -282,6 +285,12 @@
                     <p style="margin-top: 8px; font-style: italic; color: #22c55e; font-size: 13px;">
                         Vil også rette en stor takk til Marianne og Trude som må teste alle mine nye program!
                     </p>
+                    <div style="margin-top: 18px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" id="check-update-manual-btn" style="font-size: 12px; padding: 6px 12px;">
+                            <i class="fas fa-sync-alt"></i> Søk etter oppdateringer
+                        </button>
+                        <span id="manual-update-status" style="font-size: 12px; color: #94a3b8;"></span>
+                    </div>
                 </div>
 
                 <div style="background: #1e293b; padding: 25px; border-radius: 8px; border-left: 5px solid #6366f1;" class="glass-panel">
@@ -404,26 +413,6 @@
 
     <script src="vendor/quill.js"></script>
     <script src="renderer.js"></script>
-    <script>
-        const notification = document.getElementById('notification');
-        const message = document.getElementById('notification-message');
-        const restartBtn = document.getElementById('restart-button');
-        const progressContainer = document.getElementById('update-progress-container');
-        const progressBar = document.getElementById('update-progress-bar');
-        const closeBtn = document.getElementById('close-notification-btn');
-
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                notification.style.display = 'none';
-            });
-        }
-
-        if (restartBtn) {
-            restartBtn.addEventListener('click', () => {
-                invokeCommand('restart_app');
-            });
-        }
-    </script>
 </body>
 
 </html>

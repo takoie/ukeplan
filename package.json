@@ -1,7 +1,7 @@
 {
   "name": "ukeplanlager",
   "productName": "UkeplanLager",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Verktøy for ukeplanlegging",
   "scripts": {
     "predev": "node copy_icons.js",
@@ -9,6 +9,7 @@
     "dev": "npx tauri dev",
     "start": "npx tauri dev",
     "build": "python build_helper.py",
+    "build:exe": "python build_helper.py",
     "tauri": "npx tauri"
   },
   "author": "Stian Taknæs",
