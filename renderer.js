@@ -299,7 +299,8 @@ document.addEventListener('click', (e) => {
 setupEmojiPicker(quillAkt); setupEmojiPicker(quillKrav);
 
 let currentFagData = [];
-const dagerListe = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag"];
+const undervisningsDagerListe = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag"];
+const lekseDagerListe = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Mandag (neste uke)"];
 
 document.getElementById('menu-archive-toggle').addEventListener('click', function () { this.classList.toggle('menu-open'); document.getElementById('archive-submenu').classList.toggle('open'); });
 document.getElementById('menu-export-toggle').addEventListener('click', function () { this.classList.toggle('menu-open'); document.getElementById('export-submenu').classList.toggle('open'); });
@@ -404,10 +405,32 @@ async function loadPlan() {
         if (data && data.arbeidskrav) quillKrav.root.innerHTML = data.arbeidskrav;
         else {
             quillKrav.setContents([]);
-            if (fag && fag.leksedager) fag.leksedager.forEach(d => {
-                quillKrav.insertText(quillKrav.getLength() - 1, "Til " + d.toLowerCase() + ":", 'bold', true);
-                quillKrav.insertText(quillKrav.getLength() - 1, "\n\n");
-            });
+            if (fag && fag.leksedager) {
+                const currentWeek = parseInt(document.getElementById('uke-input').value) || getRealWeek();
+                const nextWeek = currentWeek >= 52 ? 1 : currentWeek + 1;
+
+                const dayOrder = {
+                    "Mandag": 1,
+                    "Tirsdag": 2,
+                    "Onsdag": 3,
+                    "Torsdag": 4,
+                    "Fredag": 5,
+                    "Mandag (neste uke)": 6
+                };
+
+                const sortedDays = [...fag.leksedager].sort((a, b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
+
+                sortedDays.forEach(d => {
+                    let label = "";
+                    if (d === "Mandag (neste uke)") {
+                        label = `Til mandag (uke ${nextWeek}):`;
+                    } else {
+                        label = "Til " + d.toLowerCase() + ":";
+                    }
+                    quillKrav.insertText(quillKrav.getLength() - 1, label, 'bold', true);
+                    quillKrav.insertText(quillKrav.getLength() - 1, "\n\n");
+                });
+            }
         }
     } catch (e) { console.error(e); }
     finally { setTimeout(() => { isLoadingData = false; }, 100); }
@@ -501,13 +524,25 @@ window.genererPDF = async function () {
     } catch (e) { alert("Feil ved generering av PDF"); }
 };
 
-function createDaySelector(c, s, k) { const el = document.getElementById(c); el.innerHTML = ''; dagerListe.forEach(d => { const x = document.createElement('div'); x.className = `day-toggle ${s.includes(d) ? k : ''}`; x.textContent = d; x.onclick = () => x.classList.toggle(k); el.appendChild(x) }) }
+function createDaySelector(c, s, k, isHomework = false) {
+    const el = document.getElementById(c);
+    if (!el) return;
+    el.innerHTML = '';
+    const days = isHomework ? lekseDagerListe : undervisningsDagerListe;
+    days.forEach(d => {
+        const x = document.createElement('div');
+        x.className = `day-toggle ${s.includes(d) ? k : ''}`;
+        x.textContent = d;
+        x.onclick = () => x.classList.toggle(k);
+        el.appendChild(x);
+    });
+}
 function getSelectedDays(c, k) { const el = document.getElementById(c); const s = []; el.querySelectorAll(`.${k}`).forEach(x => s.push(x.textContent)); return s }
 window.openAddFagModal = function () {
     document.getElementById('modal-fag-title').innerHTML = '<i class="fas fa-plus-circle" style="color:#6366f1; margin-right:8px;"></i>Legg til nytt fag';
     document.getElementById('setting-fag-navn').value = '';
-    createDaySelector('undervisning-selector', [], 'selected');
-    createDaySelector('lekse-selector', [], 'selected-homework');
+    createDaySelector('undervisning-selector', [], 'selected', false);
+    createDaySelector('lekse-selector', [], 'selected-homework', true);
     document.getElementById('save-subject-btn').innerHTML = '<i class="fas fa-save"></i> Lagre fag';
     document.getElementById('slett-fag-btn').style.display = 'none';
     document.getElementById('rename-fag-btn').style.display = 'none';
@@ -577,8 +612,8 @@ window.editSubject = function (n) {
     if (!f) return;
     document.getElementById('modal-fag-title').innerHTML = `<i class="fas fa-edit" style="color:#6366f1; margin-right:8px;"></i>Rediger ${f.navn}`;
     document.getElementById('setting-fag-navn').value = f.navn;
-    createDaySelector('undervisning-selector', f.dager || [], 'selected');
-    createDaySelector('lekse-selector', f.leksedager || [], 'selected-homework');
+    createDaySelector('undervisning-selector', f.dager || [], 'selected', false);
+    createDaySelector('lekse-selector', f.leksedager || [], 'selected-homework', true);
     document.getElementById('slett-fag-btn').style.display = 'inline-block';
     document.getElementById('slett-fag-btn').onclick = () => deleteSubject(n);
     document.getElementById('rename-fag-btn').style.display = 'inline-block';
