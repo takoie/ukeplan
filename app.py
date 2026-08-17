@@ -64,6 +64,11 @@ def init_db(path=None):
     except sqlite3.OperationalError:
         cursor.execute("ALTER TABLE fag ADD COLUMN skoleaar TEXT")
         cursor.execute("UPDATE fag SET skoleaar = '2025/2026' WHERE skoleaar IS NULL")
+    try:
+        cursor.execute("SELECT sprak FROM fag LIMIT 1")
+    except sqlite3.OperationalError:
+        cursor.execute("ALTER TABLE fag ADD COLUMN sprak TEXT DEFAULT 'Bokmål'")
+        cursor.execute("UPDATE fag SET sprak = 'Bokmål' WHERE sprak IS NULL")
     conn.commit()
     conn.close()
 
@@ -138,7 +143,8 @@ def hent_fag():
         result = []
         for r in rows:
             sa = r[3] if len(r) > 3 and r[3] else "2025/2026"
-            result.append({"navn": r[0], "dager": safe_json_load(r[1]), "leksedager": safe_json_load(r[2]), "skoleaar": sa})
+            sprak = r[4] if len(r) > 4 and r[4] else "Bokmål"
+            result.append({"navn": r[0], "dager": safe_json_load(r[1]), "leksedager": safe_json_load(r[2]), "skoleaar": sa, "sprak": sprak})
         return jsonify(result)
     except Exception as e: return jsonify({"error": str(e)}), 500
 
@@ -148,8 +154,8 @@ def lagre_nytt_fag():
     try:
         conn = sqlite3.connect(get_active_db_path(), timeout=10)
         cursor = conn.cursor()
-        cursor.execute("INSERT OR REPLACE INTO fag (navn, dager, leksedager, skoleaar) VALUES (?, ?, ?, ?)", 
-                       (data['navn'], json.dumps(data.get('dager')), json.dumps(data.get('leksedager')), data.get('skoleaar')))
+        cursor.execute("INSERT OR REPLACE INTO fag (navn, dager, leksedager, skoleaar, sprak) VALUES (?, ?, ?, ?, ?)", 
+                       (data['navn'], json.dumps(data.get('dager')), json.dumps(data.get('leksedager')), data.get('skoleaar'), data.get('sprak', 'Bokmål')))
         conn.commit(); conn.close()
         return jsonify({"message": "OK"})
     except Exception as e: return jsonify({"error": str(e)}), 500
@@ -161,10 +167,11 @@ def endre_navn_fag():
         conn = sqlite3.connect(get_active_db_path(), timeout=10); cur = conn.cursor()
         cur.execute("SELECT 1 FROM fag WHERE navn=?", (data['nyttNavn'],))
         if cur.fetchone(): conn.close(); return jsonify({"error": "Navnet finnes allerede"}), 400
-        cur.execute("SELECT dager, leksedager, skoleaar FROM fag WHERE navn=?", (data['gammeltNavn'],))
+        cur.execute("SELECT dager, leksedager, skoleaar, sprak FROM fag WHERE navn=?", (data['gammeltNavn'],))
         cols = cur.fetchone()
         if not cols: conn.close(); return jsonify({"error": "Fant ikke fag"}), 404
-        cur.execute("INSERT INTO fag (navn, dager, leksedager, skoleaar) VALUES (?, ?, ?, ?)", (data['nyttNavn'], cols[0], cols[1], cols[2]))
+        sprak = cols[3] if len(cols) > 3 and cols[3] else "Bokmål"
+        cur.execute("INSERT INTO fag (navn, dager, leksedager, skoleaar, sprak) VALUES (?, ?, ?, ?, ?)", (data['nyttNavn'], cols[0], cols[1], cols[2], sprak))
         cur.execute("UPDATE planer SET fag=? WHERE fag=?", (data['nyttNavn'], data['gammeltNavn']))
         cur.execute("DELETE FROM fag WHERE navn=?", (data['gammeltNavn'],))
         conn.commit(); conn.close()
@@ -191,7 +198,8 @@ def eksport_fag():
         if not fag: conn.close(); return jsonify({"error": "Fant ikke fag"}), 404
         cur.execute("SELECT * FROM planer WHERE fag=?", (navn,)); planer = cur.fetchall(); conn.close()
         sa = fag['skoleaar'] if 'skoleaar' in fag.keys() and fag['skoleaar'] else "2025/2026"
-        data = { "meta": { "navn": fag['navn'], "dager": safe_json_load(fag['dager']), "leksedager": safe_json_load(fag['leksedager']), "skoleaar": sa }, "planer": [dict(r) for r in planer] }
+        sprak = fag['sprak'] if 'sprak' in fag.keys() and fag['sprak'] else "Bokmål"
+        data = { "meta": { "navn": fag['navn'], "dager": safe_json_load(fag['dager']), "leksedager": safe_json_load(fag['leksedager']), "skoleaar": sa, "sprak": sprak }, "planer": [dict(r) for r in planer] }
         safe_name = re.sub(r'[\\/*?:"<>|]', "", navn).strip().replace(" ", "_")
         filnavn = f"{safe_name}_{datetime.datetime.now().strftime('%Y-%m-%d')}.json"
         path = os.path.join(get_export_dir(), filnavn)
@@ -212,7 +220,8 @@ def import_fag():
             if not cur.fetchone(): break
             cnt += 1; final = f"{navn}-{cnt}"
         sa = meta.get('skoleaar', '2025/2026')
-        cur.execute("INSERT INTO fag (navn, dager, leksedager, skoleaar) VALUES (?,?,?,?)", (final, json.dumps(meta.get('dager')), json.dumps(meta.get('leksedager')), sa))
+        sprak = meta.get('sprak', 'Bokmål')
+        cur.execute("INSERT INTO fag (navn, dager, leksedager, skoleaar, sprak) VALUES (?,?,?,?,?)", (final, json.dumps(meta.get('dager')), json.dumps(meta.get('leksedager')), sa, sprak))
         for p in d.get('planer', []):
             cur.execute("INSERT INTO planer (uke, år, fag, tema, aktivitet, arbeidskrav) VALUES (?,?,?,?,?,?)", (p['uke'], p['år'], final, p['tema'], p['aktivitet'], p['arbeidskrav']))
         conn.commit(); conn.close()

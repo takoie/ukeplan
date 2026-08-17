@@ -267,6 +267,7 @@ function setupEmojiPicker(quill) {
                 quill.insertText(idx, emoji + " ");
                 quill.setSelection(idx + emoji.length + 1);
                 popover.style.display = 'none';
+                document.querySelectorAll('.editor-grid > div').forEach(d => d.style.zIndex = '1');
             };
             grid.appendChild(item);
         });
@@ -298,9 +299,201 @@ document.addEventListener('click', (e) => {
 });
 setupEmojiPicker(quillAkt); setupEmojiPicker(quillKrav);
 
+// UTF-8 trygge base64-hjelpefunksjoner for delingskoder
+function utf8ToBase64(str) {
+    const bytes = new TextEncoder().encode(str);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+}
+
+function base64ToUtf8(str) {
+    const binary = atob(str);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder().decode(bytes);
+}
+
 let currentFagData = [];
 const undervisningsDagerListe = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag"];
 const lekseDagerListe = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Mandag (neste uke)"];
+
+const SPRAK_CONFIG = {
+    "Bokmål": {
+        code: "nb",
+        days: {
+            "Mandag": "Mandag",
+            "Tirsdag": "Tirsdag",
+            "Onsdag": "Onsdag",
+            "Torsdag": "Torsdag",
+            "Fredag": "Fredag",
+            "Mandag (neste uke)": "Mandag (neste uke)"
+        },
+        homeworkLabels: {
+            "Mandag": "Til mandag:",
+            "Tirsdag": "Til tirsdag:",
+            "Onsdag": "Til onsdag:",
+            "Torsdag": "Til torsdag:",
+            "Fredag": "Til fredag:",
+            "Mandag (neste uke)": (nextWk) => `Til mandag (uke ${nextWk}):`
+        },
+        editorHeaders: {
+            week: "Uke",
+            topic: "Tema",
+            activities: "Aktivitet",
+            homework: "Arbeidskrav",
+            topicPlaceholder: "Tema for uken...",
+            thisWeek: "Denne uken",
+            nextWeek: "Neste uke"
+        },
+        previewHeaders: {
+            weekPrefix: "UKE",
+            topic: "TEMA",
+            activities: "AKTIVITETER",
+            homework: "ARBEIDSKRAV"
+        }
+    },
+    "Nynorsk": {
+        code: "nn",
+        days: {
+            "Mandag": "Måndag",
+            "Tirsdag": "Tysdag",
+            "Onsdag": "Onsdag",
+            "Torsdag": "Torsdag",
+            "Fredag": "Fredag",
+            "Mandag (neste uke)": "Måndag (neste veke)"
+        },
+        homeworkLabels: {
+            "Mandag": "Til måndag:",
+            "Tirsdag": "Til tysdag:",
+            "Onsdag": "Til onsdag:",
+            "Torsdag": "Til torsdag:",
+            "Fredag": "Til fredag:",
+            "Mandag (neste uke)": (nextWk) => `Til måndag (veke ${nextWk}):`
+        },
+        editorHeaders: {
+            week: "Veke",
+            topic: "Tema",
+            activities: "Aktivitetar",
+            homework: "Arbeidskrav",
+            topicPlaceholder: "Tema for veka...",
+            thisWeek: "Denne veka",
+            nextWeek: "Neste veke"
+        },
+        previewHeaders: {
+            weekPrefix: "VEKE",
+            topic: "TEMA",
+            activities: "AKTIVITETAR",
+            homework: "ARBEIDSKRAV"
+        }
+    },
+    "Engelsk": {
+        code: "en",
+        days: {
+            "Mandag": "Monday",
+            "Tirsdag": "Tuesday",
+            "Onsdag": "Wednesday",
+            "Torsdag": "Thursday",
+            "Fredag": "Friday",
+            "Mandag (neste uke)": "Monday (next week)"
+        },
+        homeworkLabels: {
+            "Mandag": "For Monday:",
+            "Tirsdag": "For Tuesday:",
+            "Onsdag": "For Wednesday:",
+            "Torsdag": "For Thursday:",
+            "Fredag": "For Friday:",
+            "Mandag (neste uke)": (nextWk) => `For Monday (week ${nextWk}):`
+        },
+        editorHeaders: {
+            week: "Week",
+            topic: "Topic",
+            activities: "Activities",
+            homework: "Homework",
+            topicPlaceholder: "Topic of the week...",
+            thisWeek: "This week",
+            nextWeek: "Next week"
+        },
+        previewHeaders: {
+            weekPrefix: "WEEK",
+            topic: "TOPIC",
+            activities: "ACTIVITIES",
+            homework: "HOMEWORK"
+        }
+    },
+    "Spansk": {
+        code: "es",
+        days: {
+            "Mandag": "Lunes",
+            "Tirsdag": "Martes",
+            "Onsdag": "Miércoles",
+            "Torsdag": "Jueves",
+            "Fredag": "Viernes",
+            "Mandag (neste uke)": "Lunes (próxima semana)"
+        },
+        homeworkLabels: {
+            "Mandag": "Para el lunes:",
+            "Tirsdag": "Para el martes:",
+            "Onsdag": "Para el miércoles:",
+            "Torsdag": "Para el jueves:",
+            "Fredag": "Para el viernes:",
+            "Mandag (neste uke)": (nextWk) => `Para el lunes (semana ${nextWk}):`
+        },
+        editorHeaders: {
+            week: "Semana",
+            topic: "Tema",
+            activities: "Actividades",
+            homework: "Tareas",
+            topicPlaceholder: "Tema de la semana...",
+            thisWeek: "Esta semana",
+            nextWeek: "Próxima semana"
+        },
+        previewHeaders: {
+            weekPrefix: "SEMANA",
+            topic: "TEMA",
+            activities: "ACTIVIDADES",
+            homework: "TAREAS"
+        }
+    },
+    "Tysk": {
+        code: "de",
+        days: {
+            "Mandag": "Montag",
+            "Tirsdag": "Dienstag",
+            "Onsdag": "Mittwoch",
+            "Torsdag": "Donnerstag",
+            "Fredag": "Freitag",
+            "Mandag (neste uke)": "Montag (nächste Woche)"
+        },
+        homeworkLabels: {
+            "Mandag": "Bis Montag:",
+            "Tirsdag": "Bis Dienstag:",
+            "Onsdag": "Bis Mittwoch:",
+            "Torsdag": "Bis Donnerstag:",
+            "Fredag": "Bis Freitag:",
+            "Mandag (neste uke)": (nextWk) => `Bis Montag (Woche ${nextWk}):`
+        },
+        editorHeaders: {
+            week: "Woche",
+            topic: "Thema",
+            activities: "Aktivitäten",
+            homework: "Hausaufgaben",
+            topicPlaceholder: "Thema der Woche...",
+            thisWeek: "Diese Woche",
+            nextWeek: "Nächste Woche"
+        },
+        previewHeaders: {
+            weekPrefix: "WOCHE",
+            topic: "THEMA",
+            activities: "AKTIVITÄTEN",
+            homework: "HAUSAUFGABEN"
+        }
+    }
+};
 
 document.getElementById('menu-archive-toggle').addEventListener('click', function () { this.classList.toggle('menu-open'); document.getElementById('archive-submenu').classList.toggle('open'); });
 document.getElementById('menu-export-toggle').addEventListener('click', function () { this.classList.toggle('menu-open'); document.getElementById('export-submenu').classList.toggle('open'); });
@@ -330,16 +523,30 @@ window.switchView = function (viewName) {
 document.querySelector('.menu-item').classList.add('active');
 
 const closeBtns = document.querySelectorAll(".close-modal");
-closeBtns.forEach(btn => btn.onclick = () => { document.getElementById("modal-sist-uke").style.display = "none"; document.getElementById("modal-import").style.display = "none"; document.getElementById("modal-fag").style.display = "none"; });
+closeBtns.forEach(btn => btn.onclick = () => {
+    document.getElementById("modal-sist-uke").style.display = "none";
+    document.getElementById("modal-import").style.display = "none";
+    document.getElementById("modal-fag").style.display = "none";
+    const mNull = document.getElementById("modal-nullstill");
+    if (mNull) mNull.style.display = "none";
+});
 window.onclick = (e) => { if (e.target.classList.contains('modal')) e.target.style.display = "none"; };
 
 function visModalMedPlan(data) {
     const container = document.getElementById('prev-week-content');
     document.getElementById("modal-sist-uke").style.display = "block";
-    if (data) {
+    const fagName = (data && data.fag) || document.getElementById('fag-select')?.value || document.getElementById('tidslinje-fag')?.value;
+    const fagObj = currentFagData.find(f => f.navn === fagName);
+    const sprak = fagObj ? fagObj.sprak || "Bokmål" : "Bokmål";
+    const cfg = SPRAK_CONFIG[sprak] || SPRAK_CONFIG["Bokmål"];
+
+    if (data && (data.tema || data.aktivitet || data.arbeidskrav)) {
         document.getElementById('prev-week-num').textContent = data.uke || data.visningsUke;
-        container.innerHTML = `<div class="prev-week-grid"><div class="prev-col"><div class="prev-header" style="color:#faa61a;border-color:#faa61a;">TEMA</div><div class="prev-content">${data.tema || '-'}</div></div><div class="prev-col"><div class="prev-header" style="color:#3ba55c;border-color:#3ba55c;">AKTIVITETER</div><div class="prev-content">${data.aktivitet || '-'}</div></div><div class="prev-col"><div class="prev-header" style="color:#e67e22;border-color:#e67e22;">ARBEIDSKRAV</div><div class="prev-content">${data.arbeidskrav || '-'}</div></div></div>`;
-    } else { document.getElementById('prev-week-num').textContent = "Ingen data"; container.innerHTML = "<p style='color: white; padding: 20px;'>Fant ingen plan.</p>"; }
+        container.innerHTML = `<div class="prev-week-grid"><div class="prev-col"><div class="prev-header" style="color:#faa61a;border-color:#faa61a;">${cfg.previewHeaders.topic}</div><div class="prev-content">${data.tema || '-'}</div></div><div class="prev-col"><div class="prev-header" style="color:#3ba55c;border-color:#3ba55c;">${cfg.previewHeaders.activities}</div><div class="prev-content">${data.aktivitet || '-'}</div></div><div class="prev-col"><div class="prev-header" style="color:#e67e22;border-color:#e67e22;">${cfg.previewHeaders.homework}</div><div class="prev-content">${data.arbeidskrav || '-'}</div></div></div>`;
+    } else {
+        document.getElementById('prev-week-num').textContent = data?.visningsUke || "Ingen data";
+        container.innerHTML = "<p style='color: white; padding: 20px;'>Fant ingen plan fra forrige undervisningsuke.</p>";
+    }
 }
 
 document.getElementById('sist-uke-btn').addEventListener('click', async () => {
@@ -350,26 +557,67 @@ document.getElementById('sist-uke-btn').addEventListener('click', async () => {
     } catch (e) { }
 });
 
-function updateWeekDisplay(newWeek) {
-    if (newWeek < 1) newWeek = 52; if (newWeek > 53) newWeek = 1;
-    document.getElementById('uke-input').value = newWeek; document.getElementById('uke-display').textContent = newWeek;
+function updateEditorLanguageUI(cfg) {
+    const headerUke = document.getElementById('header-col-uke');
+    const headerTema = document.getElementById('header-col-tema');
+    const headerAkt = document.getElementById('header-col-akt');
+    const headerKrav = document.getElementById('header-col-krav');
+    const temaInput = document.getElementById('tema-input');
 
+    if (headerUke) headerUke.textContent = cfg.editorHeaders.week;
+    if (headerTema) headerTema.textContent = cfg.editorHeaders.topic;
+    if (headerAkt) headerAkt.textContent = cfg.editorHeaders.activities;
+    if (headerKrav) headerKrav.textContent = cfg.editorHeaders.homework;
+    if (temaInput) temaInput.placeholder = cfg.editorHeaders.topicPlaceholder;
+
+    const wk = parseInt(document.getElementById('uke-input')?.value);
     const realNextWeek = getRealWeek() + 1;
     const realNextWeekFixed = realNextWeek > 53 ? 1 : realNextWeek;
-    const label = document.getElementById('uke-label');
+    const ukeLabel = document.getElementById('uke-label');
+    if (ukeLabel) {
+        if (wk === realNextWeekFixed) ukeLabel.textContent = cfg.editorHeaders.nextWeek;
+        else if (wk === getRealWeek()) ukeLabel.textContent = cfg.editorHeaders.thisWeek;
+        else ukeLabel.textContent = "";
+    }
+}
 
-    if (newWeek === realNextWeekFixed) label.textContent = "Neste uke";
-    else if (newWeek === getRealWeek()) label.textContent = "Denne uken";
-    else label.textContent = "";
+function navigateWeek(delta) {
+    let currentWeek = parseInt(document.getElementById('uke-input').value) || getRealWeek();
+    let currentYear = parseInt(document.getElementById('aar-input').value) || new Date().getFullYear();
+    
+    let newWeek = currentWeek + delta;
+    let newYear = currentYear;
+
+    if (newWeek < 1) {
+        newWeek = 52;
+        newYear -= 1;
+    } else if (newWeek > 52) {
+        newWeek = 1;
+        newYear += 1;
+    }
+
+    document.getElementById('aar-input').value = newYear;
+    document.getElementById('uke-input').value = newWeek;
+    document.getElementById('uke-display').textContent = newWeek;
 
     loadPlan();
 }
+
+function updateWeekDisplay(newWeek) {
+    if (newWeek < 1) newWeek = 52; 
+    if (newWeek > 53) newWeek = 1;
+    document.getElementById('uke-input').value = newWeek; 
+    document.getElementById('uke-display').textContent = newWeek;
+
+    loadPlan();
+}
+
 function getRealWeek() {
     const d = new Date(); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
     return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(), 0, 1))) / 86400000) + 1) / 7);
 }
-document.getElementById('prev-week-nav').addEventListener('click', () => updateWeekDisplay(parseInt(document.getElementById('uke-input').value) - 1));
-document.getElementById('next-week-nav').addEventListener('click', () => updateWeekDisplay(parseInt(document.getElementById('uke-input').value) + 1));
+document.getElementById('prev-week-nav').addEventListener('click', () => navigateWeek(-1));
+document.getElementById('next-week-nav').addEventListener('click', () => navigateWeek(1));
 
 async function loadSubjects() {
     try {
@@ -387,20 +635,37 @@ async function loadSubjects() {
         else select.value = "";
 
         loadPlan();
+        if (document.getElementById('export-fag-select')) loadExportDropdown();
+        if (document.getElementById('pdf-fag-select')) loadPdfDropdown();
     } catch (e) { throw e; }
 }
 
 async function loadPlan() {
     isLoadingData = true;
     const uke = document.getElementById('uke-input').value; const aar = document.getElementById('aar-input').value; const fagNavn = document.getElementById('fag-select').value;
+    
+    const fag = currentFagData.find(f => f.navn === fagNavn);
+    const sprak = fag ? fag.sprak || "Bokmål" : "Bokmål";
+    const cfg = SPRAK_CONFIG[sprak] || SPRAK_CONFIG["Bokmål"];
+
+    updateEditorLanguageUI(cfg);
+
     if (!fagNavn) { document.getElementById('tema-input').value = ""; quillAkt.setContents([]); quillKrav.setContents([]); isLoadingData = false; return; }
     try {
-        const res = await fetch(`${API_URL}/plan?uke=${uke}&år=${aar}&fag=${fagNavn}`); const data = await res.json();
+        const res = await fetch(`${API_URL}/plan?uke=${uke}&år=${aar}&fag=${encodeURIComponent(fagNavn)}`); const data = await res.json();
         document.getElementById('tema-input').value = data ? data.tema : '';
-        const fag = currentFagData.find(f => f.navn === fagNavn);
 
         if (data && data.aktivitet) quillAkt.root.innerHTML = data.aktivitet;
-        else { quillAkt.setContents([]); if (fag && fag.dager) fag.dager.forEach(d => { quillAkt.insertText(quillAkt.getLength() - 1, d + ":", 'bold', true); quillAkt.insertText(quillAkt.getLength() - 1, "\n\n"); }); }
+        else { 
+            quillAkt.setContents([]); 
+            if (fag && fag.dager) {
+                fag.dager.forEach(d => {
+                    const translatedDay = cfg.days[d] || d;
+                    quillAkt.insertText(quillAkt.getLength() - 1, translatedDay + ":", 'bold', true);
+                    quillAkt.insertText(quillAkt.getLength() - 1, "\n\n");
+                });
+            }
+        }
 
         if (data && data.arbeidskrav) quillKrav.root.innerHTML = data.arbeidskrav;
         else {
@@ -421,9 +686,12 @@ async function loadPlan() {
                 const sortedDays = [...fag.leksedager].sort((a, b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
 
                 sortedDays.forEach(d => {
+                    let labelFunc = cfg.homeworkLabels[d];
                     let label = "";
-                    if (d === "Mandag (neste uke)") {
-                        label = `Til mandag (uke ${nextWeek}):`;
+                    if (typeof labelFunc === 'function') {
+                        label = labelFunc(nextWeek);
+                    } else if (typeof labelFunc === 'string') {
+                        label = labelFunc;
                     } else {
                         label = "Til " + d.toLowerCase() + ":";
                     }
@@ -447,21 +715,135 @@ async function utførLagring(erAutolagring = false) {
     } catch (e) { status.textContent = "Feil ved lagring"; status.style.color = "#e74c3c"; } finally { if (!erAutolagring) { btn.innerHTML = '<i class="fas fa-save"></i> Lagre'; btn.disabled = false; } }
 }
 document.getElementById('lagre-btn').addEventListener('click', () => utførLagring(false));
+
+window.openNullstillModal = function() {
+    const fagNavn = document.getElementById('fag-select').value;
+    const uke = document.getElementById('uke-input').value;
+    const aar = document.getElementById('aar-input').value;
+    if (!fagNavn) return;
+
+    const undertittel = document.getElementById('nullstill-modal-undertittel');
+    if (undertittel) {
+        undertittel.textContent = `Dette vil fjerne alt innhold du har skrevet for "${fagNavn}" i uke ${uke} (${aar}) og tilbakestille til standard mal.`;
+    }
+    const modal = document.getElementById('modal-nullstill');
+    if (modal) modal.style.display = 'block';
+};
+
+window.bekreftNullstillUke = async function() {
+    const modal = document.getElementById('modal-nullstill');
+    if (modal) modal.style.display = 'none';
+
+    const fagNavn = document.getElementById('fag-select').value;
+    const uke = document.getElementById('uke-input').value;
+    const aar = document.getElementById('aar-input').value;
+    if (!fagNavn) return;
+
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    isLoadingData = true;
+
+    const fag = currentFagData.find(f => f.navn === fagNavn);
+    const sprak = fag ? fag.sprak || "Bokmål" : "Bokmål";
+    const cfg = SPRAK_CONFIG[sprak] || SPRAK_CONFIG["Bokmål"];
+
+    document.getElementById('tema-input').value = "";
+    quillAkt.setContents([]);
+    if (fag && fag.dager) {
+        fag.dager.forEach(d => {
+            const translatedDay = cfg.days[d] || d;
+            quillAkt.insertText(quillAkt.getLength() - 1, translatedDay + ":", 'bold', true);
+            quillAkt.insertText(quillAkt.getLength() - 1, "\n\n");
+        });
+    }
+
+    quillKrav.setContents([]);
+    if (fag && fag.leksedager) {
+        const currentWeek = parseInt(uke) || getRealWeek();
+        const nextWeek = currentWeek >= 52 ? 1 : currentWeek + 1;
+
+        const dayOrder = {
+            "Mandag": 1,
+            "Tirsdag": 2,
+            "Onsdag": 3,
+            "Torsdag": 4,
+            "Fredag": 5,
+            "Mandag (neste uke)": 6
+        };
+
+        const sortedDays = [...fag.leksedager].sort((a, b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
+
+        sortedDays.forEach(d => {
+            let labelFunc = cfg.homeworkLabels[d];
+            let label = "";
+            if (typeof labelFunc === 'function') {
+                label = labelFunc(nextWeek);
+            } else if (typeof labelFunc === 'string') {
+                label = labelFunc;
+            } else {
+                label = "Til " + d.toLowerCase() + ":";
+            }
+            quillKrav.insertText(quillKrav.getLength() - 1, label, 'bold', true);
+            quillKrav.insertText(quillKrav.getLength() - 1, "\n\n");
+        });
+    }
+
+    isLoadingData = false;
+
+    // Lagre den nullstilte planen umiddelbart i databasen
+    try {
+        const payload = {
+            uke: uke,
+            år: aar,
+            fag: fagNavn,
+            tema: "",
+            aktivitet: quillAkt.root.innerHTML,
+            arbeidskrav: quillKrav.root.innerHTML
+        };
+        await fetch(`${API_URL}/lagre`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    } catch (e) {
+        console.error("Feil ved nullstilling:", e);
+    }
+};
+
+document.getElementById('nullstill-uke-btn')?.addEventListener('click', window.openNullstillModal);
+document.getElementById('nullstill-avbryt-btn')?.addEventListener('click', () => {
+    const modal = document.getElementById('modal-nullstill');
+    if (modal) modal.style.display = 'none';
+});
+document.getElementById('nullstill-bekreft-btn')?.addEventListener('click', window.bekreftNullstillUke);
 function triggerAutoSave() { if (isLoadingData) return; clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => { utførLagring(true); }, 1500); }
 document.getElementById('tema-input').addEventListener('input', triggerAutoSave);
 quillAkt.on('text-change', (delta, oldDelta, source) => { if (source === 'user') triggerAutoSave(); });
 quillKrav.on('text-change', (delta, oldDelta, source) => { if (source === 'user') triggerAutoSave(); });
-document.getElementById('fag-select').addEventListener('change', loadPlan);
+
+document.getElementById('fag-select').addEventListener('change', async () => {
+    if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer);
+        await utførLagring(false);
+    }
+    loadPlan();
+});
 
 document.getElementById('share-btn').addEventListener('click', () => {
     const status = document.getElementById('status-msg');
-    const code = "UPLAN::" + btoa(unescape(encodeURIComponent(JSON.stringify({ tema: document.getElementById('tema-input').value, aktivitet: quillAkt.root.innerHTML, arbeidskrav: quillKrav.root.innerHTML }))));
-    navigator.clipboard.writeText(code).then(() => { status.textContent = "Kode kopiert! 📋"; setTimeout(() => status.textContent = "", 3000); }).catch(err => { status.textContent = "Kunne ikke kopiere"; status.style.color = "#e74c3c"; });
+    try {
+        const payload = { tema: document.getElementById('tema-input').value, aktivitet: quillAkt.root.innerHTML, arbeidskrav: quillKrav.root.innerHTML };
+        const code = "UPLAN::" + utf8ToBase64(JSON.stringify(payload));
+        navigator.clipboard.writeText(code).then(() => { status.textContent = "Kode kopiert! 📋"; setTimeout(() => status.textContent = "", 3000); }).catch(err => { status.textContent = "Kunne ikke kopiere"; status.style.color = "#e74c3c"; });
+    } catch (e) {
+        status.textContent = "Feil ved deling";
+        status.style.color = "#e74c3c";
+    }
 });
 document.getElementById('import-modal-btn').addEventListener('click', () => { document.getElementById('import-textarea').value = ""; document.getElementById('modal-import').style.display = "block"; });
 document.getElementById('confirm-import-btn').addEventListener('click', () => {
     try {
-        const raw = document.getElementById('import-textarea').value.trim().replace("UPLAN::", ""); const data = JSON.parse(decodeURIComponent(escape(window.atob(raw))));
+        const raw = document.getElementById('import-textarea').value.trim().replace("UPLAN::", ""); 
+        const data = JSON.parse(base64ToUtf8(raw));
         isLoadingData = true; document.getElementById('tema-input').value = data.tema || ""; quillAkt.root.innerHTML = data.aktivitet || ""; quillKrav.root.innerHTML = data.arbeidskrav || ""; isLoadingData = false; utførLagring(true);
         document.getElementById('modal-import').style.display = "none"; document.getElementById('status-msg').textContent = "Importert! ✅"; setTimeout(() => document.getElementById('status-msg').textContent = "", 3000);
     } catch (e) { document.getElementById('import-error-msg').textContent = "Ugyldig kode."; }
@@ -507,8 +889,12 @@ window.genererPDF = async function () {
     const slutt = document.getElementById('pdf-slutt').value;
     const printArea = document.getElementById('print-area');
     if (!fag) return alert("Velg et fag");
+    const fagObj = currentFagData.find(f => f.navn === fag);
+    const sprak = fagObj ? fagObj.sprak || "Bokmål" : "Bokmål";
+    const cfg = SPRAK_CONFIG[sprak] || SPRAK_CONFIG["Bokmål"];
+
     try {
-        const res = await fetch(`${API_URL}/planer/periode?fag=${fag}&start=${start}&slutt=${slutt}&aar=${aar}`);
+        const res = await fetch(`${API_URL}/planer/periode?fag=${encodeURIComponent(fag)}&start=${start}&slutt=${slutt}&aar=${aar}`);
         const data = await res.json();
         printArea.innerHTML = "";
         const tittel = document.createElement('h1'); tittel.textContent = `${fag} (${aar})`; tittel.style.textAlign = 'center'; tittel.style.marginBottom = '30px'; printArea.appendChild(tittel);
@@ -516,7 +902,7 @@ window.genererPDF = async function () {
         else {
             data.forEach(p => {
                 const card = document.createElement('div'); card.className = 'preview-card'; card.style.pageBreakInside = 'avoid';
-                card.innerHTML = `<div class="preview-header"><span>${fag}</span><span>UKE ${p.uke}</span></div><div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">TEMA</span><div style="white-space: pre-wrap;">${p.tema || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">AKTIVITETER</span><div style="white-space: pre-wrap;">${p.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">ARBEIDSKRAV</span><div style="white-space: pre-wrap;">${p.arbeidskrav || '-'}</div></div></div>`;
+                card.innerHTML = `<div class="preview-header"><span>${fag}</span><span>${cfg.previewHeaders.weekPrefix} ${p.uke}</span></div><div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">${cfg.previewHeaders.topic}</span><div style="white-space: pre-wrap;">${p.tema || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">${cfg.previewHeaders.activities}</span><div style="white-space: pre-wrap;">${p.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">${cfg.previewHeaders.homework}</span><div style="white-space: pre-wrap;">${p.arbeidskrav || '-'}</div></div></div>`;
                 printArea.appendChild(card);
             });
         }
@@ -524,25 +910,44 @@ window.genererPDF = async function () {
     } catch (e) { alert("Feil ved generering av PDF"); }
 };
 
-function createDaySelector(c, s, k, isHomework = false) {
+function createDaySelector(c, s, k, isHomework = false, currentSprak = "Bokmål") {
     const el = document.getElementById(c);
     if (!el) return;
     el.innerHTML = '';
+    const cfg = SPRAK_CONFIG[currentSprak] || SPRAK_CONFIG["Bokmål"];
     const days = isHomework ? lekseDagerListe : undervisningsDagerListe;
     days.forEach(d => {
         const x = document.createElement('div');
         x.className = `day-toggle ${s.includes(d) ? k : ''}`;
-        x.textContent = d;
+        x.dataset.canonical = d;
+        x.textContent = cfg.days[d] || d;
         x.onclick = () => x.classList.toggle(k);
         el.appendChild(x);
     });
 }
-function getSelectedDays(c, k) { const el = document.getElementById(c); const s = []; el.querySelectorAll(`.${k}`).forEach(x => s.push(x.textContent)); return s }
+function getSelectedDays(c, k) { 
+    const el = document.getElementById(c); 
+    if (!el) return [];
+    const s = []; 
+    el.querySelectorAll(`.${k}`).forEach(x => s.push(x.dataset.canonical || x.textContent)); 
+    return s;
+}
+
+document.getElementById('setting-fag-sprak')?.addEventListener('change', (e) => {
+    const sprak = e.target.value;
+    const selectedUndervisning = getSelectedDays('undervisning-selector', 'selected');
+    const selectedHomework = getSelectedDays('lekse-selector', 'selected-homework');
+    createDaySelector('undervisning-selector', selectedUndervisning, 'selected', false, sprak);
+    createDaySelector('lekse-selector', selectedHomework, 'selected-homework', true, sprak);
+});
+
 window.openAddFagModal = function () {
     document.getElementById('modal-fag-title').innerHTML = '<i class="fas fa-plus-circle" style="color:#6366f1; margin-right:8px;"></i>Legg til nytt fag';
     document.getElementById('setting-fag-navn').value = '';
-    createDaySelector('undervisning-selector', [], 'selected', false);
-    createDaySelector('lekse-selector', [], 'selected-homework', true);
+    const sprakSel = document.getElementById('setting-fag-sprak');
+    if (sprakSel) sprakSel.value = 'Bokmål';
+    createDaySelector('undervisning-selector', [], 'selected', false, 'Bokmål');
+    createDaySelector('lekse-selector', [], 'selected-homework', true, 'Bokmål');
     document.getElementById('save-subject-btn').innerHTML = '<i class="fas fa-save"></i> Lagre fag';
     document.getElementById('slett-fag-btn').style.display = 'none';
     document.getElementById('rename-fag-btn').style.display = 'none';
@@ -573,34 +978,39 @@ async function loadSettings() {
         const card = document.createElement('div');
         card.className = 'fag-card';
 
+        const sprak = f.sprak || 'Bokmål';
+        const cfg = SPRAK_CONFIG[sprak] || SPRAK_CONFIG['Bokmål'];
+
         const undervisningBadges = f.dager && f.dager.length > 0
-            ? f.dager.map(d => `<span class="fag-badge">${d}</span>`).join('')
+            ? f.dager.map(d => `<span class="fag-badge">${cfg.days[d] || d}</span>`).join('')
             : '<span style="font-size:12px; color:#64748b; font-style:italic;">Ingen satt</span>';
 
         const arbeidskravBadges = f.leksedager && f.leksedager.length > 0
-            ? f.leksedager.map(d => `<span class="fag-badge fag-badge-homework">${d}</span>`).join('')
+            ? f.leksedager.map(d => `<span class="fag-badge fag-badge-homework">${cfg.days[d] || d}</span>`).join('')
             : '<span style="font-size:12px; color:#64748b; font-style:italic;">Ingen satt</span>';
 
         card.innerHTML = `
-            <div>
-                <div class="fag-card-header">
-                    <div class="fag-card-title">
-                        <i class="fas fa-book" style="color:#6366f1;"></i> ${f.navn}
-                    </div>
+            <div class="fag-card-header">
+                <div class="fag-card-title-row">
+                    <i class="fas fa-book fag-card-icon"></i>
+                    <div class="fag-card-title">${f.navn}</div>
+                </div>
+                <div class="fag-card-actions-row">
+                    <span class="fag-badge-lang"><i class="fas fa-globe"></i> ${sprak}</span>
                     <button class="btn btn-small btn-primary" onclick="editSubject('${f.navn}')">
                         <i class="fas fa-edit"></i> Rediger
                     </button>
                 </div>
-                
-                <div class="fag-card-section">
-                    <div class="fag-card-label">Undervisningsdager</div>
-                    <div class="fag-badge-list">${undervisningBadges}</div>
-                </div>
-                
-                <div class="fag-card-section" style="margin-top:12px;">
-                    <div class="fag-card-label" style="color:#f59e0b;">Arbeidskrav-dager</div>
-                    <div class="fag-badge-list">${arbeidskravBadges}</div>
-                </div>
+            </div>
+            
+            <div class="fag-card-section">
+                <div class="fag-card-label">Undervisningsdager</div>
+                <div class="fag-badge-list">${undervisningBadges}</div>
+            </div>
+            
+            <div class="fag-card-section" style="margin-top:12px;">
+                <div class="fag-card-label" style="color:#f59e0b;">Arbeidskrav-dager</div>
+                <div class="fag-badge-list">${arbeidskravBadges}</div>
             </div>
         `;
         container.appendChild(card);
@@ -610,10 +1020,13 @@ async function loadSettings() {
 window.editSubject = function (n) {
     const f = currentFagData.find(x => x.navn === n);
     if (!f) return;
+    const sprak = f.sprak || 'Bokmål';
     document.getElementById('modal-fag-title').innerHTML = `<i class="fas fa-edit" style="color:#6366f1; margin-right:8px;"></i>Rediger ${f.navn}`;
     document.getElementById('setting-fag-navn').value = f.navn;
-    createDaySelector('undervisning-selector', f.dager || [], 'selected', false);
-    createDaySelector('lekse-selector', f.leksedager || [], 'selected-homework', true);
+    const sprakSel = document.getElementById('setting-fag-sprak');
+    if (sprakSel) sprakSel.value = sprak;
+    createDaySelector('undervisning-selector', f.dager || [], 'selected', false, sprak);
+    createDaySelector('lekse-selector', f.leksedager || [], 'selected-homework', true, sprak);
     document.getElementById('slett-fag-btn').style.display = 'inline-block';
     document.getElementById('slett-fag-btn').onclick = () => deleteSubject(n);
     document.getElementById('rename-fag-btn').style.display = 'inline-block';
@@ -630,13 +1043,14 @@ document.getElementById('cancel-edit-btn').addEventListener('click', () => {
 document.getElementById('save-subject-btn').addEventListener('click', async () => {
     const n = document.getElementById('setting-fag-navn').value.trim();
     if (!n) return alert("Vennligst oppgi fagnavn.");
+    const sprak = document.getElementById('setting-fag-sprak')?.value || 'Bokmål';
     const d = getSelectedDays('undervisning-selector', 'selected');
     const l = getSelectedDays('lekse-selector', 'selected-homework');
     try {
         await fetch(`${API_URL}/fag`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ navn: n, dager: d, leksedager: l, skoleaar: currentSchoolYear })
+            body: JSON.stringify({ navn: n, dager: d, leksedager: l, skoleaar: currentSchoolYear, sprak: sprak })
         });
         await loadSettings();
         document.getElementById('modal-fag').style.display = 'none';
@@ -691,35 +1105,46 @@ async function loadPreviewDropdown() {
     const nextWeekFixed = nextWeek > 53 ? 1 : nextWeek;
     document.getElementById('preview-uke-input').value = nextWeekFixed;
 
-    renderPreview('preview-container')
+    renderPreview('preview-container');
 }
-document.getElementById('toggle-all-fag').addEventListener('change', (e) => {
-    document.getElementById('preview-fag-select').disabled = e.target.checked;
+
+document.getElementById('toggle-all-fag')?.addEventListener('change', (e) => {
+    const sel = document.getElementById('preview-fag-select');
+    if (sel) sel.disabled = e.target.checked;
     renderPreview('preview-container');
 });
 
-document.getElementById('toggle-hide-header').addEventListener('change', () => {
+document.getElementById('toggle-hide-header')?.addEventListener('change', () => {
     renderPreview('preview-container');
 });
 
-document.getElementById('preview-uke-input').addEventListener('change', () => {
+document.getElementById('preview-uke-input')?.addEventListener('input', () => {
     renderPreview('preview-container');
 });
 
-document.getElementById('preview-fag-select').addEventListener('change', () => {
+document.getElementById('preview-uke-input')?.addEventListener('change', () => {
+    renderPreview('preview-container');
+});
+
+document.getElementById('preview-fag-select')?.addEventListener('change', () => {
     renderPreview('preview-container');
 });
 
 function buildCardHtml(d, hideHeader = false, cardId = null) {
-    const headerHtml = hideHeader ? '' : `<div class="preview-header"><span>${d.fag}</span><span>UKE ${d.uke}</span></div>`;
+    const fagObj = currentFagData.find(f => f.navn === d.fag);
+    const sprak = fagObj ? fagObj.sprak || "Bokmål" : "Bokmål";
+    const cfg = SPRAK_CONFIG[sprak] || SPRAK_CONFIG["Bokmål"];
+
+    const headerHtml = hideHeader ? '' : `<div class="preview-header"><span>${d.fag}</span><span>${cfg.previewHeaders.weekPrefix} ${d.uke}</span></div>`;
     const idAttr = cardId ? `id="${cardId}"` : '';
-    return `<div ${idAttr} class="preview-card" style="margin-bottom: 0; background:#ffffff; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-radius:0; overflow:hidden;">${headerHtml}<div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">TEMA</span><div style="white-space: pre-wrap;">${d.tema || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">AKTIVITETER</span><div style="white-space: pre-wrap;">${d.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">ARBEIDSKRAV</span><div style="white-space: pre-wrap;">${d.arbeidskrav || '-'}</div></div></div></div>`;
+    return `<div ${idAttr} class="preview-card" style="margin-bottom: 0; background:#ffffff; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-radius:0; overflow:hidden;">${headerHtml}<div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">${cfg.previewHeaders.topic}</span><div style="white-space: pre-wrap;">${d.tema || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">${cfg.previewHeaders.activities}</span><div style="white-space: pre-wrap;">${d.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">${cfg.previewHeaders.homework}</span><div style="white-space: pre-wrap;">${d.arbeidskrav || '-'}</div></div></div></div>`;
 }
 
 async function renderPreview(c, d = null) {
     const el = document.getElementById(c);
-    const hideHeader = document.getElementById('toggle-hide-header').checked;
-    const showAll = document.getElementById('toggle-all-fag').checked;
+    if (!el) return;
+    const hideHeader = document.getElementById('toggle-hide-header')?.checked || false;
+    const showAll = document.getElementById('toggle-all-fag')?.checked || false;
     const mainKopierBtn = document.getElementById('kopier-bilde-btn');
 
     if (c === 'preview-container') {
@@ -732,7 +1157,7 @@ async function renderPreview(c, d = null) {
 
     if (c === 'preview-container' && showAll) {
         el.innerHTML = '<p style="padding:20px; color: white;">Laster alle fag...</p>';
-        const uke = document.getElementById('uke-input').value;
+        const uke = document.getElementById('preview-uke-input')?.value || document.getElementById('uke-input').value;
         const aar = document.getElementById('aar-input').value;
         const subjects = currentFagData.filter(f => f.skoleaar === currentSchoolYear);
 
@@ -783,7 +1208,8 @@ async function renderPreview(c, d = null) {
             if (fag) {
                 const previewUke = document.getElementById('preview-uke-input')?.value || document.getElementById('uke-input').value;
                 const previewAar = document.getElementById('aar-input').value;
-                d = await (await fetch(`${API_URL}/plan?uke=${previewUke}&år=${previewAar}&fag=${encodeURIComponent(fag)}`)).json();
+                const res = await fetch(`${API_URL}/plan?uke=${previewUke}&år=${previewAar}&fag=${encodeURIComponent(fag)}`);
+                d = await res.json();
             }
         } catch (e) { }
     }
@@ -800,41 +1226,119 @@ async function renderPreview(c, d = null) {
 
 window.kopierFagBilde = function (cardId, fagnavn) {
     const s = document.getElementById('bilde-status');
-    const target = document.getElementById(cardId);
-    if (!target) return;
+    const target = document.getElementById(cardId) || document.querySelector('#preview-container .preview-card');
+    if (!target) return alert("Fant ikke kortet som skal kopieres.");
 
-    s.textContent = `Genererer bilde for ${fagnavn}...`;
-    s.style.color = "#43b581";
+    if (s) {
+        s.textContent = `Genererer bilde for ${fagnavn}...`;
+        s.style.color = "#43b581";
+    }
 
     html2canvas(target, { scale: 3, backgroundColor: null, logging: false, useCORS: true }).then(c => {
         c.toBlob(b => {
             try {
                 navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]).then(() => {
-                    s.textContent = `Kopiert ${fagnavn}! ✅`;
-                    setTimeout(() => { if (s.textContent.includes(fagnavn)) s.textContent = ""; }, 3000);
+                    if (s) {
+                        s.textContent = `Kopiert bilde for ${fagnavn}! ✅ (Klar til å limes inn i Teams / OneNote)`;
+                        setTimeout(() => { if (s && s.textContent.includes(fagnavn)) s.textContent = ""; }, 4000);
+                    }
+                }).catch(err => {
+                    if (s) {
+                        s.textContent = "Feil ved kopiering til utklippstavle: " + err.message;
+                        s.style.color = "#ef4444";
+                    }
                 });
             } catch (e) {
-                s.textContent = "Feil ved kopiering til utklippstavle.";
-                s.style.color = "#ef4444";
+                if (s) {
+                    s.textContent = "Nettleseren støtter ikke direkte bildekopiering.";
+                    s.style.color = "#ef4444";
+                }
             }
         });
-    }).catch(() => {
-        s.textContent = "Feil ved bildegenerering.";
-        s.style.color = "#ef4444";
+    }).catch(err => {
+        if (s) {
+            s.textContent = "Feil ved bildegenerering: " + err.message;
+            s.style.color = "#ef4444";
+        }
     });
 };
 
-document.getElementById('oppdater-preview-btn').addEventListener('click', () => renderPreview('preview-container'));
-document.getElementById('kopier-bilde-btn').addEventListener('click', () => {
+document.getElementById('oppdater-preview-btn')?.addEventListener('click', () => renderPreview('preview-container'));
+document.getElementById('kopier-bilde-btn')?.addEventListener('click', () => {
     const singleCard = document.getElementById('single-preview-card') || document.querySelector('#preview-container .preview-card');
     if (!singleCard) return alert("Ingen plan å kopiere.");
-    const fag = document.getElementById('preview-fag-select').value || 'Ukeplan';
-    window.kopierFagBilde(singleCard.id || 'single-preview-card', fag);
+    const fag = document.getElementById('preview-fag-select')?.value || 'Ukeplan';
+    window.kopierFagBilde('single-preview-card', fag);
 });
-async function loadSearchDropdown() { const s = document.getElementById('sok-fag'); s.innerHTML = ''; currentFagData.forEach(f => { const o = document.createElement('option'); o.value = f.navn; o.textContent = `${f.navn} (${f.skoleaar})`; s.appendChild(o) }); s.value = document.getElementById('fag-select').value }
-window.utforSok = async function () { const c = document.getElementById('sok-resultat-container'); c.innerHTML = '<p style="color:white; padding:10px;">Søker...</p>'; try { const r = await (await fetch(`${API_URL}/sok?fag=${document.getElementById('sok-fag').value}&q=${document.getElementById('sok-tekst').value}`)).json(); c.innerHTML = ''; if (r.length === 0) c.innerHTML = '<p style="color:white; padding:10px;">Ingen treff.</p>'; r.forEach(d => renderPreview('sok-resultat-container', d)) } catch (e) { c.innerHTML = '<p style="color:red; padding:10px;">Feil.</p>' } };
-async function loadTimelineDropdown() { const s = document.getElementById('tidslinje-fag'); s.innerHTML = ''; currentFagData.forEach(f => { const o = document.createElement('option'); o.value = f.navn; o.textContent = `${f.navn} (${f.skoleaar})`; s.appendChild(o) }); s.value = document.getElementById('fag-select').value; hentTidslinje(); s.onchange = hentTidslinje }
-async function hentTidslinje() { const c = document.getElementById('tidslinje-liste'); c.innerHTML = '<p style="color:white">Laster...</p>'; try { const r = await (await fetch(`${API_URL}/tidslinje?fag=${document.getElementById('tidslinje-fag').value}`)).json(); c.innerHTML = ''; if (r.length === 0) { c.innerHTML = '<p style="color:white">Ingen planer.</p>'; return } r.forEach(d => { const i = document.createElement('div'); i.className = 'timeline-item'; i.innerHTML = `<div class="timeline-info">Uke ${d.uke} - ${d.år}</div><div class="timeline-tema">${d.tema || 'Uten tema'}</div>`; i.onclick = async () => { const p = await (await fetch(`${API_URL}/plan?uke=${d.uke}&år=${d.år}&fag=${document.getElementById('tidslinje-fag').value}`)).json(); visModalMedPlan(p) }; c.appendChild(i) }) } catch (e) { c.innerHTML = '<p style="color:red">Feil.</p>' } }
+
+async function loadSearchDropdown() {
+    const s = document.getElementById('sok-fag');
+    s.innerHTML = '';
+    currentFagData.forEach(f => {
+        const o = document.createElement('option');
+        o.value = f.navn;
+        o.textContent = `${f.navn} (${f.skoleaar})`;
+        s.appendChild(o);
+    });
+    s.value = document.getElementById('fag-select').value;
+}
+
+window.utforSok = async function () {
+    const c = document.getElementById('sok-resultat-container');
+    c.innerHTML = '<p style="color:white; padding:10px;">Søker...</p>';
+    try {
+        const r = await (await fetch(`${API_URL}/sok?fag=${encodeURIComponent(document.getElementById('sok-fag').value)}&q=${encodeURIComponent(document.getElementById('sok-tekst').value)}`)).json();
+        c.innerHTML = '';
+        if (r.length === 0) c.innerHTML = '<p style="color:white; padding:10px;">Ingen treff funnet.</p>';
+        r.forEach(d => renderPreview('sok-resultat-container', d));
+    } catch (e) {
+        c.innerHTML = '<p style="color:red; padding:10px;">Feil ved søk.</p>';
+    }
+};
+
+async function loadTimelineDropdown() {
+    const s = document.getElementById('tidslinje-fag');
+    s.innerHTML = '';
+    currentFagData.forEach(f => {
+        const o = document.createElement('option');
+        o.value = f.navn;
+        o.textContent = `${f.navn} (${f.skoleaar})`;
+        s.appendChild(o);
+    });
+    s.value = document.getElementById('fag-select').value;
+    hentTidslinje();
+    s.onchange = hentTidslinje;
+}
+
+async function hentTidslinje() {
+    const fagNavn = document.getElementById('tidslinje-fag').value;
+    const c = document.getElementById('tidslinje-liste');
+    c.innerHTML = '<p style="color:white; padding: 15px;">Laster...</p>';
+    try {
+        const r = await (await fetch(`${API_URL}/tidslinje?fag=${encodeURIComponent(fagNavn)}`)).json();
+        c.innerHTML = '';
+        if (r.length === 0) {
+            c.innerHTML = '<p style="color:white; padding: 15px;">Ingen planer funnet.</p>';
+            return;
+        }
+        const fagObj = currentFagData.find(f => f.navn === fagNavn);
+        const sprak = fagObj ? fagObj.sprak || "Bokmål" : "Bokmål";
+        const cfg = SPRAK_CONFIG[sprak] || SPRAK_CONFIG["Bokmål"];
+
+        r.forEach(d => {
+            const i = document.createElement('div');
+            i.className = 'timeline-item';
+            i.innerHTML = `<div class="timeline-info">${cfg.editorHeaders.week} ${d.uke} - ${d.år}</div><div class="timeline-tema">${d.tema || 'Uten tema'}</div>`;
+            i.onclick = async () => {
+                const p = await (await fetch(`${API_URL}/plan?uke=${d.uke}&år=${d.år}&fag=${encodeURIComponent(fagNavn)}`)).json();
+                visModalMedPlan(p);
+            };
+            c.appendChild(i);
+        });
+    } catch (e) {
+        c.innerHTML = '<p style="color:red; padding: 15px;">Feil ved henting av tidslinje.</p>';
+    }
+}
 
 function initDate() {
     const d = new Date(); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7)); const wk = Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(), 0, 1))) / 86400000) + 1) / 7) + 1;

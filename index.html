@@ -85,11 +85,12 @@
         <div class="main-content">
 
             <div id="view-editor" class="view-section active">
-                <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; margin-top: 30px;">
+                <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; margin-top: 30px; flex-wrap: wrap;">
                     <select id="fag-select" style="width: 200px; margin-bottom: 0;" class="glass-input"></select>
                     <button class="btn btn-primary" id="lagre-btn"><i class="fas fa-save"></i> Lagre</button>
                     <button class="btn btn-secondary" id="sist-uke-btn"><i class="fas fa-history"></i> Sist
                         uke?</button>
+                    <button class="btn btn-secondary" id="nullstill-uke-btn" title="Nullstill denne uken for valgt fag"><i class="fas fa-undo" style="color: #f87171;"></i> Nullstill uke</button>
                     <div style="flex-grow: 1;"></div>
                     <span id="status-msg"
                         style="font-size: 12px; color: #43b581; font-weight: bold; margin-right: 15px; min-width: 80px; text-align: right;"></span>
@@ -103,7 +104,7 @@
 
                 <div class="editor-grid">
                     <div>
-                        <div class="col-header col-uke">Uke</div>
+                        <div class="col-header col-uke" id="header-col-uke">Uke</div>
                         <div class="col-uke-content glass-panel">
                             <div class="week-display-container">
                                 <h2 id="uke-display">?</h2>
@@ -119,16 +120,16 @@
                         </div>
                     </div>
                     <div>
-                        <div class="col-header col-tema">Tema</div>
+                        <div class="col-header col-tema" id="header-col-tema">Tema</div>
                         <textarea id="tema-input" class="glass-input" placeholder="Tema for uken..."
                             spellcheck="false" autocomplete="off"></textarea>
                     </div>
                     <div>
-                        <div class="col-header col-akt">Aktivitet</div>
+                        <div class="col-header col-akt" id="header-col-akt">Aktivitet</div>
                         <div id="editor-aktivitet"></div>
                     </div>
                     <div>
-                        <div class="col-header col-krav">Arbeidskrav</div>
+                        <div class="col-header col-krav" id="header-col-krav">Arbeidskrav</div>
                         <div id="editor-krav"></div>
                     </div>
                 </div>
@@ -289,7 +290,7 @@
                         <div class="logo-text" style="font-size: 28px;">
                             <span class="neon-white">Ukeplan</span><span class="neon-yellow">Lager</span>
                         </div>
-                        <span id="app-version-badge" style="font-size: 13px; color: #94a3b8; background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 12px;">v2.4.2</span>
+                        <span id="app-version-badge" style="font-size: 13px; color: #94a3b8; background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 12px;">v2.5.0</span>
                     </div>
                     <p style="line-height: 1.6; color: #cbd5e1; font-size: 14px;">
                         Formålet med UkeplanLager er å gjøre det enklere for lærere å skrive ukeplaner, organisere faglig innhold og publisere planer i Microsoft Teams og andre læringsplattformer.
@@ -397,20 +398,34 @@
     </div>
 
     <div id="modal-fag" class="modal" style="display: none;">
-        <div class="modal-content glass-panel" style="max-width: 500px; position: relative;">
+        <div class="modal-content glass-panel" style="max-width: 520px; position: relative;">
             <span class="close-modal">&times;</span>
             <h3 id="modal-fag-title" style="margin-bottom: 15px; color: white;"><i class="fas fa-plus-circle" style="color:#6366f1; margin-right:8px;"></i>Legg til fag</h3>
             
-            <label style="font-size: 11px; color:#cbd5e1; display:block; margin-bottom:4px;">Fagnavn og klasse</label>
-            <input type="text" id="setting-fag-navn" placeholder="Eksempel: Naturfag 1ST1" spellcheck="false" autocomplete="off" class="glass-input">
+            <div style="display: grid; grid-template-columns: 1fr 150px; gap: 12px; margin-bottom: 12px;">
+                <div>
+                    <label style="font-size: 11px; color:#cbd5e1; display:block; margin-bottom:4px;">Fagnavn og klasse</label>
+                    <input type="text" id="setting-fag-navn" placeholder="Eksempel: Naturfag 1ST1" spellcheck="false" autocomplete="off" class="glass-input" style="margin-bottom: 0;">
+                </div>
+                <div>
+                    <label style="font-size: 11px; color:#cbd5e1; display:block; margin-bottom:4px;"><i class="fas fa-globe"></i> Språk</label>
+                    <select id="setting-fag-sprak" class="glass-input" style="margin-bottom: 0; width: 100%;">
+                        <option value="Bokmål">Bokmål</option>
+                        <option value="Nynorsk">Nynorsk</option>
+                        <option value="Engelsk">Engelsk</option>
+                        <option value="Spansk">Spansk</option>
+                        <option value="Tysk">Tysk</option>
+                    </select>
+                </div>
+            </div>
             
             <div style="margin-top: 15px;">
-                <label style="font-size: 11px; display: block; margin-bottom: 6px; color:#cbd5e1;">Velg undervisningsdager:</label>
+                <label style="font-size: 11px; display: block; margin-bottom: 6px; color:#cbd5e1;" id="label-undervisningsdager">Velg undervisningsdager:</label>
                 <div class="day-selector" id="undervisning-selector"></div>
             </div>
             
             <div style="margin-top: 15px;">
-                <label style="font-size: 11px; display: block; margin-bottom: 6px; color: #f59e0b;">Velg dager det gis arbeidskrav til:</label>
+                <label style="font-size: 11px; display: block; margin-bottom: 6px; color: #f59e0b;" id="label-leksedager">Velg dager det gis arbeidskrav til:</label>
                 <div class="day-selector" id="lekse-selector"></div>
             </div>
             
@@ -421,6 +436,22 @@
                 <button class="btn btn-primary" id="save-subject-btn"><i class="fas fa-save"></i> Lagre fag</button>
             </div>
             <span id="settings-status" style="font-size: 12px; color: #43b581; font-weight: bold; margin-top: 10px; display: block; text-align: right;"></span>
+        </div>
+    </div>
+
+    <div id="modal-nullstill" class="modal" style="display: none;">
+        <div class="modal-content glass-panel" style="max-width: 440px; text-align: center; padding: 25px 20px;">
+            <div style="font-size: 38px; color: #f59e0b; margin-bottom: 12px;">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h3 style="color: white; margin-bottom: 8px; font-size: 18px;">Er du sikker på at du vil nullstille denne uken?</h3>
+            <p id="nullstill-modal-undertittel" style="color: #94a3b8; font-size: 13px; margin-bottom: 22px; line-height: 1.4;">
+                Dette vil fjerne alt innhold du har skrevet for faget denne uken og tilbakestille til standard mal.
+            </p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button class="btn btn-secondary" id="nullstill-avbryt-btn" style="min-width: 100px;">Avbryt</button>
+                <button class="btn btn-danger" id="nullstill-bekreft-btn" style="min-width: 120px;"><i class="fas fa-trash-alt"></i> Ja, nullstill</button>
+            </div>
         </div>
     </div>
 
