@@ -7,14 +7,45 @@ const repoDir = __dirname;
 
 // 1. Kill any running instances
 try {
-    execSync('taskkill /F /IM ukeplanlager.exe /IM app.exe /IM cargo.exe /IM rustc.exe /T', { stdio: 'ignore' });
+    execSync('taskkill /F /IM ukeplanlager.exe /IM ukeplan_backend.exe /IM app.exe /IM cargo.exe /IM rustc.exe /T', { stdio: 'ignore' });
 } catch (e) { }
 
-// 2. Run copy_icons.js
-console.log('--- Klargjør ikoner... ---');
+// 2. Compile Python backend to standalone ukeplan_backend.exe with PyInstaller
+console.log('\n--- Kompilerer Python backend (ukeplan_backend.exe via PyInstaller)... ---');
+let pyCmd = 'py';
+let pyArgs = ['-m', 'PyInstaller', '--onefile', '--noconsole', '--name', 'ukeplan_backend', '--clean', 'app.py'];
+let pyRes = spawnSync(pyCmd, pyArgs, { cwd: repoDir, stdio: 'inherit', shell: true });
+
+if (pyRes.status !== 0) {
+    console.log('[INFO] "py" feilet eller finnes ikke, prøver "python"...');
+    pyCmd = 'python';
+    pyRes = spawnSync(pyCmd, pyArgs, { cwd: repoDir, stdio: 'inherit', shell: true });
+}
+
+if (pyRes.status !== 0) {
+    console.error('[FEIL] Kunne ikke kompilere ukeplan_backend.exe med PyInstaller!');
+    process.exit(1);
+}
+
+const distBackendExe = path.join(repoDir, 'dist', 'ukeplan_backend.exe');
+const rootBackendExe = path.join(repoDir, 'ukeplan_backend.exe');
+if (fs.existsSync(distBackendExe)) {
+    fs.copyFileSync(distBackendExe, rootBackendExe);
+    console.log(`[OK] ukeplan_backend.exe generert og oppdatert: ${rootBackendExe}`);
+    try {
+        fs.rmSync(path.join(repoDir, 'build'), { recursive: true, force: true });
+        fs.rmSync(path.join(repoDir, 'dist'), { recursive: true, force: true });
+    } catch (e) { }
+} else {
+    console.error('[FEIL] dist/ukeplan_backend.exe ble ikke funnet etter PyInstaller!');
+    process.exit(1);
+}
+
+// 3. Run copy_icons.js (Klargjør dist/ for Tauri frontendDist, vendor-filer og ikoner)
+console.log('\n--- Klargjør ikoner, dist og ressurser... ---');
 spawnSync('node', ['copy_icons.js'], { cwd: repoDir, stdio: 'inherit', shell: true });
 
-// 3. Setup environment and signing keys
+// 4. Setup environment and signing keys
 const env = { ...process.env };
 env.CARGO_TARGET_DIR = path.join(repoDir, 'src-tauri', 'target_build');
 

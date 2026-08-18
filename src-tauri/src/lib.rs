@@ -30,85 +30,95 @@ fn start_python_backend(app: &AppHandle, state: &AppState) {
     let mut spawned_child: Option<Child> = None;
 
     let cwd = std::env::current_dir().unwrap_or_default();
-    let root_dir = if cwd.join("app.py").exists() {
+    let root_dir = if cwd.join("app.py").exists() || cwd.join("ukeplan_backend.exe").exists() || cwd.join("app.exe").exists() {
         cwd
-    } else if cwd.join("..").join("app.py").exists() {
+    } else if cwd.join("..").join("app.py").exists() || cwd.join("..").join("ukeplan_backend.exe").exists() || cwd.join("..").join("app.exe").exists() {
         cwd.join("..")
     } else {
         cwd
     };
 
-    let py_candidates = vec![
-        Some(root_dir.join("app.py")),
-        app.path().resource_dir().ok().map(|p| p.join("app.py")),
-        app.path().resource_dir().ok().map(|p| p.join("_up_").join("app.py")),
-    ];
+    let curr_exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf()));
+    let resource_dir = app.path().resource_dir().ok();
 
-    for py_path in py_candidates.into_iter().flatten() {
-        if py_path.exists() {
-            let python_execs = ["python", "py", "python3"];
-            for exec in python_execs {
-                let mut cmd = Command::new(exec);
-                cmd.arg(&py_path);
-                if let Some(parent) = py_path.parent() {
-                    cmd.current_dir(parent);
-                }
+    // 1. PRIORITET: Frittstående ukeplan_backend.exe (Krever IKKE Python installert på maskinen)
+    let mut exe_candidates = Vec::new();
+    if let Some(ref r) = resource_dir {
+        exe_candidates.push(r.join("ukeplan_backend.exe"));
+        exe_candidates.push(r.join("_up_").join("ukeplan_backend.exe"));
+        exe_candidates.push(r.join("resources").join("ukeplan_backend.exe"));
+        exe_candidates.push(r.join("resources").join("_up_").join("ukeplan_backend.exe"));
+        // fallback om gammel app.exe finnes
+        exe_candidates.push(r.join("app.exe"));
+        exe_candidates.push(r.join("_up_").join("app.exe"));
+    }
+    if let Some(ref d) = curr_exe_dir {
+        exe_candidates.push(d.join("ukeplan_backend.exe"));
+        exe_candidates.push(d.join("_up_").join("ukeplan_backend.exe"));
+        exe_candidates.push(d.join("resources").join("ukeplan_backend.exe"));
+        exe_candidates.push(d.join("resources").join("_up_").join("ukeplan_backend.exe"));
+        exe_candidates.push(d.join("app.exe"));
+        exe_candidates.push(d.join("_up_").join("app.exe"));
+    }
+    exe_candidates.push(root_dir.join("ukeplan_backend.exe"));
+    exe_candidates.push(root_dir.join("src-tauri").join("ukeplan_backend.exe"));
+    exe_candidates.push(root_dir.join("app.exe"));
+    exe_candidates.push(root_dir.join("src-tauri").join("app.exe"));
 
-                #[cfg(target_os = "windows")]
-                {
-                    use std::os::windows::process::CommandExt;
-                    const CREATE_NO_WINDOW: u32 = 0x08000000;
-                    cmd.creation_flags(CREATE_NO_WINDOW);
-                }
-
-                if let Ok(child) = cmd.spawn() {
-                    println!("Python backend startet med '{}' ({:?})", exec, py_path);
-                    spawned_child = Some(child);
-                    break;
-                }
+    for cand in exe_candidates {
+        if cand.exists() {
+            let mut cmd = Command::new(&cand);
+            if let Some(parent) = cand.parent() {
+                cmd.current_dir(parent);
             }
-            if spawned_child.is_some() {
+
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                cmd.creation_flags(CREATE_NO_WINDOW);
+            }
+
+            if let Ok(child) = cmd.spawn() {
+                println!("[OK] Python backend startet via standalone binary: {:?}", cand);
+                spawned_child = Some(child);
                 break;
             }
         }
     }
 
+    // 2. FALLBACK: app.py (Kun for lokal utvikling hvor backend exe ikke er bygget)
     if spawned_child.is_none() {
-        let curr_exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf()));
-        let resource_dir = app.path().resource_dir().ok();
+        let py_candidates = vec![
+            Some(root_dir.join("app.py")),
+            resource_dir.as_ref().map(|p| p.join("app.py")),
+            resource_dir.as_ref().map(|p| p.join("_up_").join("app.py")),
+        ];
 
-        let mut exe_candidates = Vec::new();
-        if let Some(ref r) = resource_dir {
-            exe_candidates.push(r.join("app.exe"));
-            exe_candidates.push(r.join("_up_").join("app.exe"));
-            exe_candidates.push(r.join("resources").join("app.exe"));
-        }
-        if let Some(ref d) = curr_exe_dir {
-            exe_candidates.push(d.join("app.exe"));
-            exe_candidates.push(d.join("resources").join("app.exe"));
-            exe_candidates.push(d.join("resources").join("_up_").join("app.exe"));
-            exe_candidates.push(d.join("_up_").join("app.exe"));
-        }
-        exe_candidates.push(root_dir.join("app.exe"));
-        exe_candidates.push(root_dir.join("src-tauri").join("app.exe"));
+        for py_path in py_candidates.into_iter().flatten() {
+            if py_path.exists() {
+                let python_execs = ["py", "python", "python3"];
+                for exec in python_execs {
+                    let mut cmd = Command::new(exec);
+                    cmd.arg(&py_path);
+                    if let Some(parent) = py_path.parent() {
+                        cmd.current_dir(parent);
+                    }
 
-        for cand in exe_candidates {
-            if cand.exists() {
-                let mut cmd = Command::new(&cand);
-                if let Some(parent) = cand.parent() {
-                    cmd.current_dir(parent);
+                    #[cfg(target_os = "windows")]
+                    {
+                        use std::os::windows::process::CommandExt;
+                        const CREATE_NO_WINDOW: u32 = 0x08000000;
+                        cmd.creation_flags(CREATE_NO_WINDOW);
+                    }
+
+                    if let Ok(child) = cmd.spawn() {
+                        println!("[OK] Python backend startet via '{}' ({:?})", exec, py_path);
+                        spawned_child = Some(child);
+                        break;
+                    }
                 }
-
-                #[cfg(target_os = "windows")]
-                {
-                    use std::os::windows::process::CommandExt;
-                    const CREATE_NO_WINDOW: u32 = 0x08000000;
-                    cmd.creation_flags(CREATE_NO_WINDOW);
-                }
-
-                if let Ok(child) = cmd.spawn() {
-                    println!("Python backend startet via binary {:?}", cand);
-                    spawned_child = Some(child);
+                if spawned_child.is_some() {
                     break;
                 }
             }
@@ -120,7 +130,7 @@ fn start_python_backend(app: &AppHandle, state: &AppState) {
             *guard = Some(child);
         }
     } else {
-        eprintln!("Kunne ikke starte Python backend (hverken app.py eller app.exe ble startet).");
+        eprintln!("[FEIL] Kunne ikke starte Python backend (hverken ukeplan_backend.exe eller app.py ble startet).");
     }
 }
 
@@ -177,7 +187,7 @@ fn prepare_for_update(state: State<'_, AppState>) {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         let _ = Command::new("cmd")
-            .args(["/C", "taskkill /F /IM app.exe /T"])
+            .args(["/C", "taskkill /F /IM ukeplan_backend.exe /IM app.exe /T"])
             .creation_flags(CREATE_NO_WINDOW)
             .output();
     }
@@ -191,7 +201,7 @@ fn restart_app(app: AppHandle, state: State<'_, AppState>) {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         let _ = Command::new("cmd")
-            .args(["/C", "taskkill /F /IM app.exe /T"])
+            .args(["/C", "taskkill /F /IM ukeplan_backend.exe /IM app.exe /T"])
             .creation_flags(CREATE_NO_WINDOW)
             .output();
     }

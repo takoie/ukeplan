@@ -8,7 +8,7 @@ async function invokeCommand(cmd, args) {
     return null;
 }
 
-const API_URL = 'http://127.0.0.1:5000/api';
+const API_URL = 'http://127.0.0.1:5055/api';
 
 let autoSaveTimer;
 let isLoadingData = false;

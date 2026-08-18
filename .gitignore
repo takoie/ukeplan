@@ -6,6 +6,8 @@ __pycache__
 ukeplaner_v3.db
 ukeplaner_database.db
 app.exe
+ukeplan_backend.exe
+src-tauri/ukeplan_backend.exe
 README.md
 ikon.png
 convert.py

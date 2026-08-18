@@ -292,5 +292,7 @@ def save():
     except Exception as e: return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
+    import multiprocessing
+    multiprocessing.freeze_support()
     init_db()
-    app.run(host='127.0.0.1', port=5000, threaded=True)
+    app.run(host='127.0.0.1', port=5055, threaded=True)

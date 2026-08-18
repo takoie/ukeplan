@@ -67,22 +67,22 @@ if (!fs.existsSync(iconsDir)) {
     }
 }
 
-const distAppExe = path.join(__dirname, 'dist', 'app.exe');
-const appExeSrc = path.join(__dirname, 'app.exe');
-const appExeDst = path.join(__dirname, 'src-tauri', 'app.exe');
+const distBackendExe = path.join(__dirname, 'dist', 'ukeplan_backend.exe');
+const backendExeSrc = path.join(__dirname, 'ukeplan_backend.exe');
+const backendExeDst = path.join(__dirname, 'src-tauri', 'ukeplan_backend.exe');
 
-if (fs.existsSync(distAppExe)) {
+if (fs.existsSync(distBackendExe)) {
     try {
-        fs.copyFileSync(distAppExe, appExeSrc);
-        fs.copyFileSync(distAppExe, appExeDst);
+        fs.copyFileSync(distBackendExe, backendExeSrc);
+        fs.copyFileSync(distBackendExe, backendExeDst);
     } catch (e) {
-        console.warn('Advarsel ved kopiering fra dist/app.exe:', e.message);
+        console.warn('Advarsel ved kopiering fra dist/ukeplan_backend.exe:', e.message);
     }
-} else if (fs.existsSync(appExeSrc)) {
+} else if (fs.existsSync(backendExeSrc)) {
     try {
-        fs.copyFileSync(appExeSrc, appExeDst);
+        fs.copyFileSync(backendExeSrc, backendExeDst);
     } catch (e) {
-        console.warn('Advarsel: Kunne ikke kopiere app.exe til src-tauri:', e.message);
+        console.warn('Advarsel: Kunne ikke kopiere ukeplan_backend.exe til src-tauri:', e.message);
     }
 }
 

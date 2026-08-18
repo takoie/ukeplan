@@ -22,7 +22,7 @@ Kjør i terminalen:
 npm run build:exe
 ```
 
-Dette klargjør ikoner og ressurser, kompilerer Tauri/Rust-koden, signerer med kryptografisk nøkkel og genererer:
+Dette kompilerer automatisk Python backend (`ukeplan_backend.exe`) med PyInstaller, klargjør ikoner og ressurser, kompilerer Tauri/Rust-koden, signerer med kryptografisk nøkkel og genererer:
 - `src-tauri/target_build/release/bundle/nsis/UkeplanLager_<VERSJON>_x64-setup.exe` (NSIS-installer)
 - `src-tauri/target_build/release/bundle/nsis/UkeplanLager_<VERSJON>_x64-setup.exe.sig` (Kryptografisk signatur)
 - `latest.json` (Automatisk generert og kopiert til rotmappen for sømløs in-app oppdatering)

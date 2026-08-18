@@ -10,14 +10,38 @@ if sys.stdout.encoding != 'utf-8':
 
 repo_dir = os.path.dirname(os.path.abspath(__file__))
 
-# 1. Kill any running ukeplanlager.exe, app.exe, cargo.exe, rustc.exe
-subprocess.run(["cmd.exe", "/c", "taskkill /F /IM ukeplanlager.exe /IM app.exe /IM cargo.exe /IM rustc.exe /T"], capture_output=True)
+# 1. Kill any running ukeplanlager.exe, ukeplan_backend.exe, app.exe, cargo.exe, rustc.exe
+subprocess.run(["cmd.exe", "/c", "taskkill /F /IM ukeplanlager.exe /IM ukeplan_backend.exe /IM app.exe /IM cargo.exe /IM rustc.exe /T"], capture_output=True)
 time.sleep(1)
 
-# 2. Run copy_icons.js
+# 2. Compile Python backend to standalone ukeplan_backend.exe with PyInstaller
+print("\n--- Kompilerer Python backend (ukeplan_backend.exe via PyInstaller)... ---")
+py_cmd = [sys.executable, "-m", "PyInstaller", "--onefile", "--noconsole", "--name", "ukeplan_backend", "--clean", "app.py"]
+py_res = subprocess.run(py_cmd, cwd=repo_dir)
+if py_res.returncode != 0:
+    print('[INFO] sys.executable feilet, prøver "py"...')
+    py_res = subprocess.run(["py", "-m", "PyInstaller", "--onefile", "--noconsole", "--name", "ukeplan_backend", "--clean", "app.py"], cwd=repo_dir)
+
+if py_res.returncode != 0:
+    print("[FEIL] Kunne ikke kompilere ukeplan_backend.exe med PyInstaller!")
+    sys.exit(1)
+
+dist_backend_exe = os.path.join(repo_dir, "dist", "ukeplan_backend.exe")
+root_backend_exe = os.path.join(repo_dir, "ukeplan_backend.exe")
+if os.path.exists(dist_backend_exe):
+    shutil.copy2(dist_backend_exe, root_backend_exe)
+    print(f"[OK] ukeplan_backend.exe generert og oppdatert: {root_backend_exe}")
+    shutil.rmtree(os.path.join(repo_dir, "build"), ignore_errors=True)
+    shutil.rmtree(os.path.join(repo_dir, "dist"), ignore_errors=True)
+else:
+    print("[FEIL] dist/ukeplan_backend.exe ble ikke funnet etter PyInstaller!")
+    sys.exit(1)
+
+# 3. Run copy_icons.js (Klargjør dist/ for Tauri frontendDist, vendor-filer og ikoner)
+print("\n--- Klargjør ikoner, dist og ressurser... ---")
 subprocess.run(["node", "copy_icons.js"], cwd=repo_dir)
 
-# 3. Setup environment and signing keys
+# 4. Setup environment and signing keys
 env = os.environ.copy()
 env["CARGO_TARGET_DIR"] = os.path.join(repo_dir, "src-tauri", "target_build")
 
