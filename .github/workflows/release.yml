@@ -49,10 +49,17 @@ jobs:
           node copy_icons.js
 
       - name: Build Tauri Application
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        shell: pwsh
         run: |
+          if ("${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}") {
+            Write-Host "Signing key found in GitHub Secrets."
+            $env:TAURI_SIGNING_PRIVATE_KEY = "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}"
+            if ("${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}") {
+              $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}"
+            }
+          } else {
+            Write-Host "No signing key provided in GitHub Secrets."
+          }
           npx tauri build
 
       - name: Collect Release Artifacts
