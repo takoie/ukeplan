@@ -1,0 +1,84 @@
+name: Release UkeplanLager
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Install Node.js dependencies
+        run: npm install
+
+      - name: Build Python backend & Prepare frontend
+        run: |
+          python -m PyInstaller --onefile --noconsole --name ukeplan_backend --clean app.py
+          Move-Item -Force dist\ukeplan_backend.exe .\ukeplan_backend.exe
+          node copy_icons.js
+
+      - name: Build Tauri Application
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          npx tauri build
+
+      - name: Collect Release Artifacts
+        id: artifacts
+        shell: pwsh
+        run: |
+          $nsisDir = "src-tauri\target\release\bundle\nsis"
+          if (-not (Test-Path $nsisDir)) {
+            $nsisDir = "src-tauri\target_build\release\bundle\nsis"
+          }
+          Write-Host "Looking for artifacts in $nsisDir"
+          Get-ChildItem $nsisDir
+
+          $files = Get-ChildItem "$nsisDir\*" -Include *.exe, *.sig, latest.json | Select-Object -ExpandProperty FullName
+          Write-Host "Found release files: $files"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.sig
+            src-tauri/target/release/bundle/nsis/latest.json
+            src-tauri/target_build/release/bundle/nsis/*.exe
+            src-tauri/target_build/release/bundle/nsis/*.sig
+            src-tauri/target_build/release/bundle/nsis/latest.json
+          name: UkeplanLager ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true

@@ -13,6 +13,10 @@ const API_URL = 'http://127.0.0.1:5055/api';
 let autoSaveTimer;
 let isLoadingData = false;
 let currentSchoolYear = "";
+let currentEditorFag = null;
+let currentEditorWeek = null;
+let currentEditorYear = null;
+let hasUnsavedChanges = false;
 
 // --- INITIERING ---
 // VIKTIG FIX: Alt som skal skje ved oppstart legges her for å sikre at knappene fungerer
@@ -499,8 +503,12 @@ document.getElementById('menu-archive-toggle').addEventListener('click', functio
 document.getElementById('menu-export-toggle').addEventListener('click', function () { this.classList.toggle('menu-open'); document.getElementById('export-submenu').classList.toggle('open'); });
 document.getElementById('menu-settings-toggle').addEventListener('click', function () { this.classList.toggle('menu-open'); document.getElementById('settings-submenu').classList.toggle('open'); });
 
-window.switchView = function (viewName) {
-    if (viewName !== 'editor' && autoSaveTimer) { clearTimeout(autoSaveTimer); utførLagring(false); }
+window.switchView = async function (viewName) {
+    if (viewName !== 'editor' && (autoSaveTimer || hasUnsavedChanges)) {
+        if (autoSaveTimer) clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+        await utførLagring(false);
+    }
     document.querySelectorAll('.menu-item, .submenu-item').forEach(el => el.classList.remove('active'));
 
     if (viewName === 'editor') { document.getElementById('menu-editor').classList.add('active'); if (currentFagData.length > 0) loadPlan(); }
@@ -581,7 +589,12 @@ function updateEditorLanguageUI(cfg) {
     }
 }
 
-function navigateWeek(delta) {
+async function navigateWeek(delta) {
+    if (autoSaveTimer || hasUnsavedChanges) {
+        if (autoSaveTimer) clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+        await utførLagring(false);
+    }
     let currentWeek = parseInt(document.getElementById('uke-input').value) || getRealWeek();
     let currentYear = parseInt(document.getElementById('aar-input').value) || new Date().getFullYear();
     
@@ -603,7 +616,12 @@ function navigateWeek(delta) {
     loadPlan();
 }
 
-function updateWeekDisplay(newWeek) {
+async function updateWeekDisplay(newWeek) {
+    if (autoSaveTimer || hasUnsavedChanges) {
+        if (autoSaveTimer) clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+        await utførLagring(false);
+    }
     if (newWeek < 1) newWeek = 52; 
     if (newWeek > 53) newWeek = 1;
     document.getElementById('uke-input').value = newWeek; 
@@ -621,6 +639,11 @@ document.getElementById('next-week-nav').addEventListener('click', () => navigat
 
 async function loadSubjects() {
     try {
+        if (autoSaveTimer || hasUnsavedChanges) {
+            if (autoSaveTimer) clearTimeout(autoSaveTimer);
+            autoSaveTimer = null;
+            await utførLagring(false);
+        }
         const res = await fetch(`${API_URL}/fag`); if (!res.ok) throw new Error('Not ready');
         currentFagData = await res.json();
 
@@ -641,8 +664,19 @@ async function loadSubjects() {
 }
 
 async function loadPlan() {
+    if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+    }
     isLoadingData = true;
-    const uke = document.getElementById('uke-input').value; const aar = document.getElementById('aar-input').value; const fagNavn = document.getElementById('fag-select').value;
+    const uke = document.getElementById('uke-input').value;
+    const aar = document.getElementById('aar-input').value;
+    const fagNavn = document.getElementById('fag-select').value;
+
+    currentEditorFag = fagNavn;
+    currentEditorWeek = uke;
+    currentEditorYear = aar;
+    hasUnsavedChanges = false;
     
     const fag = currentFagData.find(f => f.navn === fagNavn);
     const sprak = fag ? fag.sprak || "Bokmål" : "Bokmål";
@@ -701,18 +735,55 @@ async function loadPlan() {
             }
         }
     } catch (e) { console.error(e); }
-    finally { setTimeout(() => { isLoadingData = false; }, 100); }
+    finally {
+        setTimeout(() => {
+            isLoadingData = false;
+            hasUnsavedChanges = false;
+        }, 100);
+    }
 }
 
 async function utførLagring(erAutolagring = false) {
-    if (!document.getElementById('fag-select').value) return;
+    if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+    }
+    const fagVal = currentEditorFag || document.getElementById('fag-select')?.value;
+    const ukeVal = currentEditorWeek || document.getElementById('uke-input')?.value;
+    const aarVal = currentEditorYear || document.getElementById('aar-input')?.value;
+    if (!fagVal) return;
+
     const status = document.getElementById('status-msg'); const btn = document.getElementById('lagre-btn');
-    if (!erAutolagring) { btn.textContent = "Lagrer..."; btn.disabled = true; } else { status.textContent = "Lagrer..."; }
+    if (!erAutolagring && btn) { btn.textContent = "Lagrer..."; btn.disabled = true; } else if (status) { status.textContent = "Lagrer..."; }
     try {
-        const payload = { uke: document.getElementById('uke-input').value, år: document.getElementById('aar-input').value, fag: document.getElementById('fag-select').value, tema: document.getElementById('tema-input').value, aktivitet: quillAkt.root.innerHTML, arbeidskrav: quillKrav.root.innerHTML };
+        const payload = {
+            uke: ukeVal,
+            år: aarVal,
+            fag: fagVal,
+            tema: document.getElementById('tema-input')?.value || '',
+            aktivitet: quillAkt.root.innerHTML,
+            arbeidskrav: quillKrav.root.innerHTML
+        };
         const res = await fetch(`${API_URL}/lagre`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (res.ok) { const msg = erAutolagring ? "Lagret (Auto)" : "Lagret! ✅"; status.textContent = msg; if (autoSaveTimer) clearTimeout(autoSaveTimer); setTimeout(() => { if (status.textContent === msg) status.textContent = ""; }, 2000); }
-    } catch (e) { status.textContent = "Feil ved lagring"; status.style.color = "#e74c3c"; } finally { if (!erAutolagring) { btn.innerHTML = '<i class="fas fa-save"></i> Lagre'; btn.disabled = false; } }
+        if (res.ok) {
+            hasUnsavedChanges = false;
+            const msg = erAutolagring ? "Lagret (Auto)" : "Lagret! ✅";
+            if (status) {
+                status.textContent = msg;
+                setTimeout(() => { if (status && status.textContent === msg) status.textContent = ""; }, 2000);
+            }
+        }
+    } catch (e) {
+        if (status) {
+            status.textContent = "Feil ved lagring";
+            status.style.color = "#e74c3c";
+        }
+    } finally {
+        if (!erAutolagring && btn) {
+            btn.innerHTML = '<i class="fas fa-save"></i> Lagre';
+            btn.disabled = false;
+        }
+    }
 }
 document.getElementById('lagre-btn').addEventListener('click', () => utførLagring(false));
 
@@ -740,7 +811,13 @@ window.bekreftNullstillUke = async function() {
     if (!fagNavn) return;
 
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = null;
+    hasUnsavedChanges = false;
     isLoadingData = true;
+
+    currentEditorFag = fagNavn;
+    currentEditorWeek = uke;
+    currentEditorYear = aar;
 
     const fag = currentFagData.find(f => f.navn === fagNavn);
     const sprak = fag ? fag.sprak || "Bokmål" : "Bokmål";
@@ -815,14 +892,22 @@ document.getElementById('nullstill-avbryt-btn')?.addEventListener('click', () =>
     if (modal) modal.style.display = 'none';
 });
 document.getElementById('nullstill-bekreft-btn')?.addEventListener('click', window.bekreftNullstillUke);
-function triggerAutoSave() { if (isLoadingData) return; clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => { utførLagring(true); }, 1500); }
+function triggerAutoSave() {
+    if (isLoadingData) return;
+    hasUnsavedChanges = true;
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+        utførLagring(true);
+    }, 1500);
+}
 document.getElementById('tema-input').addEventListener('input', triggerAutoSave);
 quillAkt.on('text-change', (delta, oldDelta, source) => { if (source === 'user') triggerAutoSave(); });
 quillKrav.on('text-change', (delta, oldDelta, source) => { if (source === 'user') triggerAutoSave(); });
 
 document.getElementById('fag-select').addEventListener('change', async () => {
-    if (autoSaveTimer) {
-        clearTimeout(autoSaveTimer);
+    if (autoSaveTimer || hasUnsavedChanges) {
+        if (autoSaveTimer) clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
         await utførLagring(false);
     }
     loadPlan();
