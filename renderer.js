@@ -10,13 +10,13 @@ async function invokeCommand(cmd, args) {
 
 const API_URL = 'http://127.0.0.1:5055/api';
 
-let autoSaveTimer;
+let autoSaveTimer = null;
 let isLoadingData = false;
 let currentSchoolYear = "";
-let currentEditorFag = null;
-let currentEditorWeek = null;
-let currentEditorYear = null;
-let hasUnsavedChanges = false;
+let activeEditorFag = null;
+let activeEditorUke = null;
+let activeEditorAar = null;
+let isEditorDirty = false;
 
 // --- INITIERING ---
 // VIKTIG FIX: Alt som skal skje ved oppstart legges her for å sikre at knappene fungerer
@@ -85,7 +85,12 @@ function populateSchoolYearDropdown(years) {
         sel.appendChild(opt);
     });
     sel.value = currentSchoolYear;
-    sel.onchange = () => {
+    sel.onchange = async () => {
+        if (autoSaveTimer || isEditorDirty) {
+            if (autoSaveTimer) clearTimeout(autoSaveTimer);
+            autoSaveTimer = null;
+            if (activeEditorFag) await utførLagring(false);
+        }
         currentSchoolYear = sel.value;
         localStorage.setItem('skoleaar', currentSchoolYear);
         loadSubjects();
@@ -504,15 +509,18 @@ document.getElementById('menu-export-toggle').addEventListener('click', function
 document.getElementById('menu-settings-toggle').addEventListener('click', function () { this.classList.toggle('menu-open'); document.getElementById('settings-submenu').classList.toggle('open'); });
 
 window.switchView = async function (viewName) {
-    if (viewName !== 'editor' && (autoSaveTimer || hasUnsavedChanges)) {
+    if (viewName !== 'editor' && (autoSaveTimer || isEditorDirty)) {
         if (autoSaveTimer) clearTimeout(autoSaveTimer);
         autoSaveTimer = null;
-        await utførLagring(false);
+        if (activeEditorFag) await utførLagring(false);
     }
     document.querySelectorAll('.menu-item, .submenu-item').forEach(el => el.classList.remove('active'));
 
     if (viewName === 'editor') { document.getElementById('menu-editor').classList.add('active'); if (currentFagData.length > 0) loadPlan(); }
-    if (viewName === 'preview') document.getElementById('menu-preview').classList.add('active');
+    if (viewName === 'preview') {
+        document.getElementById('menu-preview').classList.add('active');
+        await loadPreviewDropdown();
+    }
     if (viewName === 'fag') { document.getElementById('menu-fag').classList.add('active'); loadSettings(); }
 
     if (viewName === 'search') { document.getElementById('menu-search').classList.add('active'); document.getElementById('menu-archive-toggle').classList.add('active'); loadSearchDropdown(); }
@@ -526,7 +534,6 @@ window.switchView = async function (viewName) {
 
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
     document.getElementById(`view-${viewName}`).classList.add('active');
-    if (viewName === 'preview') loadPreviewDropdown();
 };
 document.querySelector('.menu-item').classList.add('active');
 
@@ -590,10 +597,10 @@ function updateEditorLanguageUI(cfg) {
 }
 
 async function navigateWeek(delta) {
-    if (autoSaveTimer || hasUnsavedChanges) {
+    if (autoSaveTimer || isEditorDirty) {
         if (autoSaveTimer) clearTimeout(autoSaveTimer);
         autoSaveTimer = null;
-        await utførLagring(false);
+        if (activeEditorFag) await utførLagring(false);
     }
     let currentWeek = parseInt(document.getElementById('uke-input').value) || getRealWeek();
     let currentYear = parseInt(document.getElementById('aar-input').value) || new Date().getFullYear();
@@ -617,10 +624,10 @@ async function navigateWeek(delta) {
 }
 
 async function updateWeekDisplay(newWeek) {
-    if (autoSaveTimer || hasUnsavedChanges) {
+    if (autoSaveTimer || isEditorDirty) {
         if (autoSaveTimer) clearTimeout(autoSaveTimer);
         autoSaveTimer = null;
-        await utførLagring(false);
+        if (activeEditorFag) await utførLagring(false);
     }
     if (newWeek < 1) newWeek = 52; 
     if (newWeek > 53) newWeek = 1;
@@ -639,11 +646,6 @@ document.getElementById('next-week-nav').addEventListener('click', () => navigat
 
 async function loadSubjects() {
     try {
-        if (autoSaveTimer || hasUnsavedChanges) {
-            if (autoSaveTimer) clearTimeout(autoSaveTimer);
-            autoSaveTimer = null;
-            await utførLagring(false);
-        }
         const res = await fetch(`${API_URL}/fag`); if (!res.ok) throw new Error('Not ready');
         currentFagData = await res.json();
 
@@ -664,19 +666,10 @@ async function loadSubjects() {
 }
 
 async function loadPlan() {
-    if (autoSaveTimer) {
-        clearTimeout(autoSaveTimer);
-        autoSaveTimer = null;
-    }
     isLoadingData = true;
     const uke = document.getElementById('uke-input').value;
     const aar = document.getElementById('aar-input').value;
     const fagNavn = document.getElementById('fag-select').value;
-
-    currentEditorFag = fagNavn;
-    currentEditorWeek = uke;
-    currentEditorYear = aar;
-    hasUnsavedChanges = false;
     
     const fag = currentFagData.find(f => f.navn === fagNavn);
     const sprak = fag ? fag.sprak || "Bokmål" : "Bokmål";
@@ -684,9 +677,26 @@ async function loadPlan() {
 
     updateEditorLanguageUI(cfg);
 
-    if (!fagNavn) { document.getElementById('tema-input').value = ""; quillAkt.setContents([]); quillKrav.setContents([]); isLoadingData = false; return; }
+    if (!fagNavn) {
+        document.getElementById('tema-input').value = "";
+        quillAkt.setContents([]);
+        quillKrav.setContents([]);
+        activeEditorFag = null;
+        activeEditorUke = null;
+        activeEditorAar = null;
+        isEditorDirty = false;
+        isLoadingData = false;
+        return;
+    }
+
+    activeEditorFag = fagNavn;
+    activeEditorUke = uke;
+    activeEditorAar = aar;
+    isEditorDirty = false;
+
     try {
-        const res = await fetch(`${API_URL}/plan?uke=${uke}&år=${aar}&fag=${encodeURIComponent(fagNavn)}`); const data = await res.json();
+        const res = await fetch(`${API_URL}/plan?uke=${uke}&år=${aar}&fag=${encodeURIComponent(fagNavn)}`);
+        const data = await res.json();
         document.getElementById('tema-input').value = data ? data.tema : '';
 
         if (data && data.aktivitet) quillAkt.root.innerHTML = data.aktivitet;
@@ -734,44 +744,58 @@ async function loadPlan() {
                 });
             }
         }
-    } catch (e) { console.error(e); }
-    finally {
+    } catch (e) {
+        console.error(e);
+    } finally {
         setTimeout(() => {
             isLoadingData = false;
-            hasUnsavedChanges = false;
+            isEditorDirty = false;
         }, 100);
     }
 }
 
 async function utførLagring(erAutolagring = false) {
-    if (autoSaveTimer) {
-        clearTimeout(autoSaveTimer);
-        autoSaveTimer = null;
-    }
-    const fagVal = currentEditorFag || document.getElementById('fag-select')?.value;
-    const ukeVal = currentEditorWeek || document.getElementById('uke-input')?.value;
-    const aarVal = currentEditorYear || document.getElementById('aar-input')?.value;
-    if (!fagVal) return;
+    const targetFag = activeEditorFag || document.getElementById('fag-select')?.value;
+    const targetUke = activeEditorUke || document.getElementById('uke-input')?.value;
+    const targetAar = activeEditorAar || document.getElementById('aar-input')?.value;
+    if (!targetFag) return;
 
-    const status = document.getElementById('status-msg'); const btn = document.getElementById('lagre-btn');
-    if (!erAutolagring && btn) { btn.textContent = "Lagrer..."; btn.disabled = true; } else if (status) { status.textContent = "Lagrer..."; }
+    const status = document.getElementById('status-msg');
+    const btn = document.getElementById('lagre-btn');
+    if (!erAutolagring) {
+        if (btn) { btn.textContent = "Lagrer..."; btn.disabled = true; }
+    } else {
+        if (status) status.textContent = "Lagrer...";
+    }
+
     try {
         const payload = {
-            uke: ukeVal,
-            år: aarVal,
-            fag: fagVal,
-            tema: document.getElementById('tema-input')?.value || '',
+            uke: targetUke,
+            år: targetAar,
+            fag: targetFag,
+            tema: document.getElementById('tema-input').value,
             aktivitet: quillAkt.root.innerHTML,
             arbeidskrav: quillKrav.root.innerHTML
         };
-        const res = await fetch(`${API_URL}/lagre`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const res = await fetch(`${API_URL}/lagre`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
         if (res.ok) {
-            hasUnsavedChanges = false;
+            isEditorDirty = false;
             const msg = erAutolagring ? "Lagret (Auto)" : "Lagret! ✅";
             if (status) {
                 status.textContent = msg;
-                setTimeout(() => { if (status && status.textContent === msg) status.textContent = ""; }, 2000);
+                status.style.color = "#43b581";
             }
+            if (autoSaveTimer) {
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = null;
+            }
+            setTimeout(() => {
+                if (status && status.textContent === msg) status.textContent = "";
+            }, 2000);
         }
     } catch (e) {
         if (status) {
@@ -811,13 +835,7 @@ window.bekreftNullstillUke = async function() {
     if (!fagNavn) return;
 
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
-    autoSaveTimer = null;
-    hasUnsavedChanges = false;
     isLoadingData = true;
-
-    currentEditorFag = fagNavn;
-    currentEditorWeek = uke;
-    currentEditorYear = aar;
 
     const fag = currentFagData.find(f => f.navn === fagNavn);
     const sprak = fag ? fag.sprak || "Bokmål" : "Bokmål";
@@ -865,6 +883,10 @@ window.bekreftNullstillUke = async function() {
     }
 
     isLoadingData = false;
+    activeEditorFag = fagNavn;
+    activeEditorUke = uke;
+    activeEditorAar = aar;
+    isEditorDirty = false;
 
     // Lagre den nullstilte planen umiddelbart i databasen
     try {
@@ -892,9 +914,10 @@ document.getElementById('nullstill-avbryt-btn')?.addEventListener('click', () =>
     if (modal) modal.style.display = 'none';
 });
 document.getElementById('nullstill-bekreft-btn')?.addEventListener('click', window.bekreftNullstillUke);
+
 function triggerAutoSave() {
     if (isLoadingData) return;
-    hasUnsavedChanges = true;
+    isEditorDirty = true;
     clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(() => {
         utførLagring(true);
@@ -905,10 +928,12 @@ quillAkt.on('text-change', (delta, oldDelta, source) => { if (source === 'user')
 quillKrav.on('text-change', (delta, oldDelta, source) => { if (source === 'user') triggerAutoSave(); });
 
 document.getElementById('fag-select').addEventListener('change', async () => {
-    if (autoSaveTimer || hasUnsavedChanges) {
+    if (autoSaveTimer || isEditorDirty) {
         if (autoSaveTimer) clearTimeout(autoSaveTimer);
         autoSaveTimer = null;
-        await utførLagring(false);
+        if (activeEditorFag) {
+            await utførLagring(false);
+        }
     }
     loadPlan();
 });
@@ -1181,16 +1206,34 @@ window.renameSubject = async function (oldName) {
 };
 
 async function loadPreviewDropdown() {
-    const s = document.getElementById('preview-fag-select'); s.innerHTML = '';
+    const s = document.getElementById('preview-fag-select');
+    s.innerHTML = '';
     const filtered = currentFagData.filter(f => f.skoleaar === currentSchoolYear);
-    filtered.forEach(f => { const o = document.createElement('option'); o.value = f.navn; o.textContent = f.navn; s.appendChild(o) }); const e = document.getElementById('fag-select').value; if (e) s.value = e;
+    filtered.forEach(f => {
+        const o = document.createElement('option');
+        o.value = f.navn;
+        o.textContent = f.navn;
+        s.appendChild(o);
+    });
 
-    // Initialize preview week/year with next week as default
-    const nextWeek = getRealWeek() + 1;
-    const nextWeekFixed = nextWeek > 53 ? 1 : nextWeek;
-    document.getElementById('preview-uke-input').value = nextWeekFixed;
+    const activeFag = document.getElementById('fag-select')?.value;
+    if (activeFag && filtered.some(f => f.navn === activeFag)) {
+        s.value = activeFag;
+    } else if (filtered.length > 0) {
+        s.value = filtered[0].navn;
+    }
 
-    renderPreview('preview-container');
+    // Sync uke fra planlegger-editoren
+    const editorUke = parseInt(document.getElementById('uke-input')?.value);
+    if (editorUke) {
+        document.getElementById('preview-uke-input').value = editorUke;
+    } else {
+        const nextWeek = getRealWeek() + 1;
+        const nextWeekFixed = nextWeek > 53 ? 1 : nextWeek;
+        document.getElementById('preview-uke-input').value = nextWeekFixed;
+    }
+
+    await renderPreview('preview-container');
 }
 
 document.getElementById('toggle-all-fag')?.addEventListener('change', (e) => {
@@ -1560,6 +1603,15 @@ document.getElementById('check-update-manual-btn')?.addEventListener('click', ()
 
 async function initApp() {
     initDate();
+    if (window.__TAURI__ && window.__TAURI__.app) {
+        try {
+            const ver = await window.__TAURI__.app.getVersion();
+            const badge = document.getElementById('app-version-badge');
+            const sidebarVer = document.getElementById('sidebar-version');
+            if (badge) badge.textContent = `v${ver}`;
+            if (sidebarVer) sidebarVer.textContent = `v${ver}`;
+        } catch (e) { }
+    }
     const checkBackend = async () => {
         try {
             const res = await fetch(`${API_URL}/fag`);

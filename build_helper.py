@@ -3,6 +3,8 @@ import os
 import sys
 import time
 import shutil
+import json
+import datetime
 
 # Ensure utf-8 stdout encoding if possible
 if sys.stdout.encoding != 'utf-8':
@@ -59,12 +61,35 @@ if os.path.exists(key_path) and "TAURI_SIGNING_PRIVATE_KEY" not in env:
 print("\n--- Starter npx tauri build (Vennligst vent ~30-45 sekunder mens Windows komprimerer og pakker installasjonsfilen)... ---")
 res = subprocess.run(["npx.cmd", "tauri", "build"], cwd=repo_dir, env=env)
 if res.returncode == 0:
-    # Copy latest.json from bundle if created
+    with open(os.path.join(repo_dir, "package.json"), "r", encoding="utf-8") as f:
+        pkg = json.load(f)
+    version = pkg.get("version", "2.5.5")
     nsis_dir = os.path.join(repo_dir, "src-tauri", "target_build", "release", "bundle", "nsis")
-    bundle_latest = os.path.join(nsis_dir, "latest.json")
+    sig_file = os.path.join(nsis_dir, f"UkeplanLager_{version}_x64-setup.exe.sig")
+    exe_file = os.path.join(nsis_dir, f"UkeplanLager_{version}_x64-setup.exe")
     root_latest = os.path.join(repo_dir, "latest.json")
-    if os.path.exists(bundle_latest):
-        shutil.copy2(bundle_latest, root_latest)
-        print(f"[OK] Kopierte nysignert latest.json til {root_latest}")
+    bundle_latest = os.path.join(nsis_dir, "latest.json")
+
+    if os.path.exists(sig_file) and os.path.exists(exe_file):
+        with open(sig_file, "r", encoding="utf-8") as f:
+            signature = f.read().strip()
+        latest_data = {
+            "version": version,
+            "notes": f"UkeplanLager v{version}",
+            "pub_date": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+            "platforms": {
+                "windows-x86_64": {
+                    "signature": signature,
+                    "url": f"https://github.com/takoie/ukeplan/releases/download/v{version}/UkeplanLager_{version}_x64-setup.exe"
+                }
+            }
+        }
+        with open(root_latest, "w", encoding="utf-8") as f:
+            json.dump(latest_data, f, indent=2)
+        with open(bundle_latest, "w", encoding="utf-8") as f:
+            json.dump(latest_data, f, indent=2)
+        print(f"[OK] Genererte fersk og nysignert latest.json (v{version}) til {root_latest}")
+    else:
+        print("[ADVARSEL] Fant ikke .sig-filen for å generere latest.json!")
     print("\n🎉 GRATULERER! Byggingen er fullført! Installasjonsfilene ligger i src-tauri/target_build/release/bundle/nsis/")
 sys.exit(res.returncode)
