@@ -1,138 +1,8 @@
-use std::process::{Child, Command};
-use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Manager, State, Window};
+mod commands;
+mod db;
+
+use tauri::{AppHandle, Manager, Window};
 use tauri_plugin_dialog::DialogExt;
-
-#[derive(Default)]
-pub struct AppState {
-    pub python_process: Arc<Mutex<Option<Child>>>,
-}
-
-fn kill_python_process(state: &AppState) {
-    if let Ok(mut guard) = state.python_process.lock() {
-        if let Some(mut child) = guard.take() {
-            let pid = child.id();
-            #[cfg(target_os = "windows")]
-            {
-                use std::os::windows::process::CommandExt;
-                const CREATE_NO_WINDOW: u32 = 0x08000000;
-                let _ = Command::new("cmd")
-                    .args(["/C", &format!("taskkill /F /PID {} /T", pid)])
-                    .creation_flags(CREATE_NO_WINDOW)
-                    .output();
-            }
-            let _ = child.kill();
-        }
-    }
-}
-
-fn start_python_backend(app: &AppHandle, state: &AppState) {
-    let mut spawned_child: Option<Child> = None;
-
-    let cwd = std::env::current_dir().unwrap_or_default();
-    let root_dir = if cwd.join("app.py").exists() || cwd.join("ukeplan_backend.exe").exists() || cwd.join("app.exe").exists() {
-        cwd
-    } else if cwd.join("..").join("app.py").exists() || cwd.join("..").join("ukeplan_backend.exe").exists() || cwd.join("..").join("app.exe").exists() {
-        cwd.join("..")
-    } else {
-        cwd
-    };
-
-    let curr_exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf()));
-    let resource_dir = app.path().resource_dir().ok();
-
-    // 1. PRIORITET: Frittstående ukeplan_backend.exe (Krever IKKE Python installert på maskinen)
-    let mut exe_candidates = Vec::new();
-    if let Some(ref r) = resource_dir {
-        exe_candidates.push(r.join("ukeplan_backend.exe"));
-        exe_candidates.push(r.join("_up_").join("ukeplan_backend.exe"));
-        exe_candidates.push(r.join("resources").join("ukeplan_backend.exe"));
-        exe_candidates.push(r.join("resources").join("_up_").join("ukeplan_backend.exe"));
-        // fallback om gammel app.exe finnes
-        exe_candidates.push(r.join("app.exe"));
-        exe_candidates.push(r.join("_up_").join("app.exe"));
-    }
-    if let Some(ref d) = curr_exe_dir {
-        exe_candidates.push(d.join("ukeplan_backend.exe"));
-        exe_candidates.push(d.join("_up_").join("ukeplan_backend.exe"));
-        exe_candidates.push(d.join("resources").join("ukeplan_backend.exe"));
-        exe_candidates.push(d.join("resources").join("_up_").join("ukeplan_backend.exe"));
-        exe_candidates.push(d.join("app.exe"));
-        exe_candidates.push(d.join("_up_").join("app.exe"));
-    }
-    exe_candidates.push(root_dir.join("ukeplan_backend.exe"));
-    exe_candidates.push(root_dir.join("src-tauri").join("ukeplan_backend.exe"));
-    exe_candidates.push(root_dir.join("app.exe"));
-    exe_candidates.push(root_dir.join("src-tauri").join("app.exe"));
-
-    for cand in exe_candidates {
-        if cand.exists() {
-            let mut cmd = Command::new(&cand);
-            if let Some(parent) = cand.parent() {
-                cmd.current_dir(parent);
-            }
-
-            #[cfg(target_os = "windows")]
-            {
-                use std::os::windows::process::CommandExt;
-                const CREATE_NO_WINDOW: u32 = 0x08000000;
-                cmd.creation_flags(CREATE_NO_WINDOW);
-            }
-
-            if let Ok(child) = cmd.spawn() {
-                println!("[OK] Python backend startet via standalone binary: {:?}", cand);
-                spawned_child = Some(child);
-                break;
-            }
-        }
-    }
-
-    // 2. FALLBACK: app.py (Kun for lokal utvikling hvor backend exe ikke er bygget)
-    if spawned_child.is_none() {
-        let py_candidates = vec![
-            Some(root_dir.join("app.py")),
-            resource_dir.as_ref().map(|p| p.join("app.py")),
-            resource_dir.as_ref().map(|p| p.join("_up_").join("app.py")),
-        ];
-
-        for py_path in py_candidates.into_iter().flatten() {
-            if py_path.exists() {
-                let python_execs = ["py", "python", "python3"];
-                for exec in python_execs {
-                    let mut cmd = Command::new(exec);
-                    cmd.arg(&py_path);
-                    if let Some(parent) = py_path.parent() {
-                        cmd.current_dir(parent);
-                    }
-
-                    #[cfg(target_os = "windows")]
-                    {
-                        use std::os::windows::process::CommandExt;
-                        const CREATE_NO_WINDOW: u32 = 0x08000000;
-                        cmd.creation_flags(CREATE_NO_WINDOW);
-                    }
-
-                    if let Ok(child) = cmd.spawn() {
-                        println!("[OK] Python backend startet via '{}' ({:?})", exec, py_path);
-                        spawned_child = Some(child);
-                        break;
-                    }
-                }
-                if spawned_child.is_some() {
-                    break;
-                }
-            }
-        }
-    }
-
-    if let Some(child) = spawned_child {
-        if let Ok(mut guard) = state.python_process.lock() {
-            *guard = Some(child);
-        }
-    } else {
-        eprintln!("[FEIL] Kunne ikke starte Python backend (hverken ukeplan_backend.exe eller app.py ble startet).");
-    }
-}
 
 #[tauri::command]
 fn app_minimize(window: Window) {
@@ -151,8 +21,7 @@ fn app_maximize(window: Window) {
 }
 
 #[tauri::command]
-fn app_close(app: AppHandle, state: State<'_, AppState>) {
-    kill_python_process(&state);
+fn app_close(app: AppHandle) {
     app.exit(0);
 }
 
@@ -180,55 +49,23 @@ fn save_db_dialog(app: AppHandle) -> Option<String> {
 }
 
 #[tauri::command]
-fn prepare_for_update(state: State<'_, AppState>) {
-    kill_python_process(&state);
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        let _ = Command::new("cmd")
-            .args(["/C", "taskkill /F /IM ukeplan_backend.exe /IM app.exe /T"])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
-    }
-}
+fn prepare_for_update() {}
 
 #[tauri::command]
-fn restart_app(app: AppHandle, state: State<'_, AppState>) {
-    kill_python_process(&state);
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        let _ = Command::new("cmd")
-            .args(["/C", "taskkill /F /IM ukeplan_backend.exe /IM app.exe /T"])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
-    }
+fn restart_app(app: AppHandle) {
     tauri::process::restart(&app.env());
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let app_state = AppState::default();
+    if let Err(e) = db::init_db(&db::get_active_db_path()) {
+        eprintln!("[FEIL] Kunne ikke initialisere database: {}", e);
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(app_state)
-        .setup(|app| {
-            let handle = app.handle().clone();
-            let state = app.state::<AppState>();
-            start_python_backend(&handle, &state);
-            Ok(())
-        })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                let state = window.state::<AppState>();
-                kill_python_process(&state);
-            }
-        })
         .invoke_handler(tauri::generate_handler![
             app_minimize,
             app_maximize,
@@ -236,7 +73,23 @@ pub fn run() {
             open_db_dialog,
             save_db_dialog,
             prepare_for_update,
-            restart_app
+            restart_app,
+            commands::get_db_path,
+            commands::set_db_path,
+            commands::move_db,
+            commands::open_export_folder,
+            commands::hent_fag,
+            commands::lagre_nytt_fag,
+            commands::endre_navn_fag,
+            commands::slett_fag,
+            commands::eksporter_fag,
+            commands::importer_fag,
+            commands::hent_plan,
+            commands::hent_forrige_plan,
+            commands::hent_planer_periode,
+            commands::sok_planer,
+            commands::hent_tidslinje,
+            commands::lagre_plan,
         ])
         .run(tauri::generate_context!())
         .expect("Feil under kjøring av Tauri-applikasjon");

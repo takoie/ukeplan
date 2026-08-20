@@ -25,28 +25,14 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt pyinstaller
 
       - name: Install Node.js dependencies
         run: npm install
 
-      - name: Build Python backend & Prepare frontend
-        run: |
-          python -m PyInstaller --onefile --noconsole --name ukeplan_backend --clean app.py
-          Move-Item -Force dist\ukeplan_backend.exe .\ukeplan_backend.exe
-          node copy_icons.js
+      - name: Prepare frontend
+        run: node copy_icons.js
 
       - name: Build Tauri Application
         shell: pwsh

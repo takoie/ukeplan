@@ -8,8 +8,6 @@ async function invokeCommand(cmd, args) {
     return null;
 }
 
-const API_URL = 'http://127.0.0.1:5055/api';
-
 let autoSaveTimer = null;
 let isLoadingData = false;
 let currentSchoolYear = "";
@@ -21,16 +19,10 @@ let isEditorDirty = false;
 // --- INITIERING ---
 // VIKTIG FIX: Alt som skal skje ved oppstart legges her for å sikre at knappene fungerer
 window.addEventListener('DOMContentLoaded', () => {
-    console.log("App initialiserer... API_URL:", API_URL);
+    console.log("App initialiserer...");
     fixLogoPath();
     initSchoolYears();
     updateDbPathDisplay();
-
-    // Test API-tilkobling
-    fetch(`${API_URL}/system/get-db-path`)
-        .then(r => r.json())
-        .then(d => console.log("✓ API-tilkobling OK, database-sti:", d.path))
-        .catch(e => console.error("✗ API-tilkoblingsfeil:", e.message));
 
     // VINDUSKONTROLLER (Flyttet hit for å garantere at de virker)
     const minBtn = document.getElementById('min-btn');
@@ -130,14 +122,13 @@ window.opprettNyttSkoleaar = function () {
 // --- DATABASE LOGIKK ---
 async function updateDbPathDisplay() {
     try {
-        const res = await fetch(`${API_URL}/system/get-db-path`);
-        const data = await res.json();
+        const path = await invokeCommand('get_db_path');
         const el = document.getElementById('current-db-path');
-        if (el) el.textContent = data.path || "Ukjent";
+        if (el) el.textContent = path || "Ukjent";
     } catch (e) {
         console.error("Feil ved henting av database-sti:", e);
         const el = document.getElementById('current-db-path');
-        if (el) el.textContent = "Feil ved tilkobling (er Flask-serveren på?)";
+        if (el) el.textContent = "Feil ved tilkobling til database";
     }
 }
 
@@ -148,16 +139,10 @@ window.velgNyDatabase = async function () {
     if (path) {
         status.textContent = "Bytter database...";
         try {
-            const res = await fetch(`${API_URL}/system/set-db-path`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: path }) });
-            if (res.ok) { status.textContent = "Oppdatert! Laster på nytt..."; setTimeout(() => location.reload(), 1000); }
-            else {
-                const err = await res.json();
-                status.textContent = "Feil: " + (err.error || "Ukjent feil");
-                status.style.color = "#e74c3c";
-                console.error("Database-bytte feil:", err);
-            }
+            await invokeCommand('set_db_path', { path: path });
+            status.textContent = "Oppdatert! Laster på nytt..."; setTimeout(() => location.reload(), 1000);
         } catch (e) {
-            status.textContent = "Feil: " + e.message;
+            status.textContent = "Feil: " + e;
             status.style.color = "#e74c3c";
             console.error("Database-bytte exception:", e);
         }
@@ -171,16 +156,10 @@ window.opprettNyDatabase = async function () {
     if (path) {
         status.textContent = "Oppretter...";
         try {
-            const res = await fetch(`${API_URL}/system/set-db-path`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: path }) });
-            if (res.ok) { status.textContent = "Opprettet! Laster på nytt..."; setTimeout(() => location.reload(), 1000); }
-            else {
-                const err = await res.json();
-                status.textContent = "Feil: " + (err.error || "Ukjent feil");
-                status.style.color = "#e74c3c";
-                console.error("Database-opprettelse feil:", err);
-            }
+            await invokeCommand('set_db_path', { path: path });
+            status.textContent = "Opprettet! Laster på nytt..."; setTimeout(() => location.reload(), 1000);
         } catch (e) {
-            status.textContent = "Feil: " + e.message;
+            status.textContent = "Feil: " + e;
             status.style.color = "#e74c3c";
             console.error("Database-opprettelse exception:", e);
         }
@@ -194,16 +173,10 @@ window.flyttDatabase = async function () {
     if (path) {
         status.textContent = "Flytter...";
         try {
-            const res = await fetch(`${API_URL}/system/move-db`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: path }) });
-            if (res.ok) { status.textContent = "Flyttet! Laster på nytt..."; setTimeout(() => location.reload(), 1000); }
-            else {
-                const err = await res.json();
-                status.textContent = "Feil: " + (err.error || "Ukjent feil");
-                status.style.color = "#e74c3c";
-                console.error("Database-flytt feil:", err);
-            }
+            await invokeCommand('move_db', { path: path });
+            status.textContent = "Flyttet! Laster på nytt..."; setTimeout(() => location.reload(), 1000);
         } catch (e) {
-            status.textContent = "Feil: " + e.message;
+            status.textContent = "Feil: " + e;
             status.style.color = "#e74c3c";
             console.error("Database-flytt exception:", e);
         }
@@ -567,8 +540,8 @@ function visModalMedPlan(data) {
 document.getElementById('sist-uke-btn').addEventListener('click', async () => {
     try {
         const uke = document.getElementById('uke-input').value; const aar = document.getElementById('aar-input').value; const fag = document.getElementById('fag-select').value;
-        const res = await fetch(`${API_URL}/plan/forrige?uke=${uke}&år=${aar}&fag=${fag}`);
-        visModalMedPlan(await res.json());
+        const data = await invokeCommand('hent_forrige_plan', { uke: Number(uke), ar: Number(aar), fag: fag });
+        visModalMedPlan(data);
     } catch (e) { }
 });
 
@@ -646,8 +619,7 @@ document.getElementById('next-week-nav').addEventListener('click', () => navigat
 
 async function loadSubjects() {
     try {
-        const res = await fetch(`${API_URL}/fag`); if (!res.ok) throw new Error('Not ready');
-        currentFagData = await res.json();
+        currentFagData = await invokeCommand('hent_fag');
 
         const filteredFag = currentFagData.filter(f => f.skoleaar === currentSchoolYear);
 
@@ -695,8 +667,7 @@ async function loadPlan() {
     isEditorDirty = false;
 
     try {
-        const res = await fetch(`${API_URL}/plan?uke=${uke}&år=${aar}&fag=${encodeURIComponent(fagNavn)}`);
-        const data = await res.json();
+        const data = await invokeCommand('hent_plan', { uke: Number(uke), ar: Number(aar), fag: fagNavn });
         document.getElementById('tema-input').value = data ? data.tema : '';
 
         if (data && data.aktivitet) quillAkt.root.innerHTML = data.aktivitet;
@@ -770,33 +741,27 @@ async function utførLagring(erAutolagring = false) {
 
     try {
         const payload = {
-            uke: targetUke,
-            år: targetAar,
+            uke: Number(targetUke),
+            ar: Number(targetAar),
             fag: targetFag,
             tema: document.getElementById('tema-input').value,
             aktivitet: quillAkt.root.innerHTML,
             arbeidskrav: quillKrav.root.innerHTML
         };
-        const res = await fetch(`${API_URL}/lagre`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-            isEditorDirty = false;
-            const msg = erAutolagring ? "Lagret (Auto)" : "Lagret! ✅";
-            if (status) {
-                status.textContent = msg;
-                status.style.color = "#43b581";
-            }
-            if (autoSaveTimer) {
-                clearTimeout(autoSaveTimer);
-                autoSaveTimer = null;
-            }
-            setTimeout(() => {
-                if (status && status.textContent === msg) status.textContent = "";
-            }, 2000);
+        await invokeCommand('lagre_plan', payload);
+        isEditorDirty = false;
+        const msg = erAutolagring ? "Lagret (Auto)" : "Lagret! ✅";
+        if (status) {
+            status.textContent = msg;
+            status.style.color = "#43b581";
         }
+        if (autoSaveTimer) {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = null;
+        }
+        setTimeout(() => {
+            if (status && status.textContent === msg) status.textContent = "";
+        }, 2000);
     } catch (e) {
         if (status) {
             status.textContent = "Feil ved lagring";
@@ -891,18 +856,14 @@ window.bekreftNullstillUke = async function() {
     // Lagre den nullstilte planen umiddelbart i databasen
     try {
         const payload = {
-            uke: uke,
-            år: aar,
+            uke: Number(uke),
+            ar: Number(aar),
             fag: fagNavn,
             tema: "",
             aktivitet: quillAkt.root.innerHTML,
             arbeidskrav: quillKrav.root.innerHTML
         };
-        await fetch(`${API_URL}/lagre`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        await invokeCommand('lagre_plan', payload);
     } catch (e) {
         console.error("Feil ved nullstilling:", e);
     }
@@ -966,9 +927,9 @@ async function loadExportDropdown() {
 }
 document.getElementById('do-export-fag-btn').addEventListener('click', async () => {
     const fag = document.getElementById('export-fag-select').value; const status = document.getElementById('export-status'); if (!fag) return;
-    try { const res = await fetch(`${API_URL}/fag/eksport?navn=${fag}`); const data = await res.json(); if (data.error) throw new Error(data.error); status.textContent = `Lagret: ${data.filename} ✅`; status.style.color = "#43b581"; } catch (e) { status.textContent = "Eksport feilet: " + e.message; status.style.color = "#e74c3c"; }
+    try { const data = await invokeCommand('eksporter_fag', { navn: fag }); status.textContent = `Lagret: ${data.filename} ✅`; status.style.color = "#43b581"; } catch (e) { status.textContent = "Eksport feilet: " + e; status.style.color = "#e74c3c"; }
 });
-document.getElementById('open-export-folder-btn').addEventListener('click', async () => { await fetch(`${API_URL}/system/open-export`); });
+document.getElementById('open-export-folder-btn').addEventListener('click', async () => { await invokeCommand('open_export_folder'); });
 document.getElementById('import-json-input').addEventListener('change', async (e) => {
     const file = e.target.files[0]; const status = document.getElementById('import-status'); if (!file) return;
     status.textContent = "Leser fil..."; status.style.color = "#ccc";
@@ -977,8 +938,8 @@ document.getElementById('import-json-input').addEventListener('change', async (e
         try {
             const jsonData = JSON.parse(evt.target.result);
             if (!jsonData.meta.skoleaar) jsonData.meta.skoleaar = currentSchoolYear;
-            status.textContent = "Importerer..."; const res = await fetch(`${API_URL}/fag/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(jsonData) }); const result = await res.json(); if (result.error) throw new Error(result.error); status.textContent = `Suksess! Fag: ${result.nyttNavn} (${result.antallPlaner} planer)`; status.style.color = "#43b581"; await loadSubjects();
-        } catch (err) { status.textContent = "Feil: " + err.message; status.style.color = "#e74c3c"; }
+            status.textContent = "Importerer..."; const result = await invokeCommand('importer_fag', { meta: jsonData.meta, planer: jsonData.planer }); status.textContent = `Suksess! Fag: ${result.nyttNavn} (${result.antallPlaner} planer)`; status.style.color = "#43b581"; await loadSubjects();
+        } catch (err) { status.textContent = "Feil: " + (err.message || err); status.style.color = "#e74c3c"; }
         e.target.value = '';
     };
     reader.readAsText(file);
@@ -1004,8 +965,7 @@ window.genererPDF = async function () {
     const cfg = SPRAK_CONFIG[sprak] || SPRAK_CONFIG["Bokmål"];
 
     try {
-        const res = await fetch(`${API_URL}/planer/periode?fag=${encodeURIComponent(fag)}&start=${start}&slutt=${slutt}&aar=${aar}`);
-        const data = await res.json();
+        const data = await invokeCommand('hent_planer_periode', { fag: fag, aar: Number(aar), start: Number(start), slutt: Number(slutt) });
         printArea.innerHTML = "";
         const tittel = document.createElement('h1'); tittel.textContent = `${fag} (${aar})`; tittel.style.textAlign = 'center'; tittel.style.marginBottom = '30px'; printArea.appendChild(tittel);
         if (data.length === 0) { printArea.innerHTML += "<p style='text-align:center'>Ingen planer funnet.</p>"; }
@@ -1157,11 +1117,7 @@ document.getElementById('save-subject-btn').addEventListener('click', async () =
     const d = getSelectedDays('undervisning-selector', 'selected');
     const l = getSelectedDays('lekse-selector', 'selected-homework');
     try {
-        await fetch(`${API_URL}/fag`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ navn: n, dager: d, leksedager: l, skoleaar: currentSchoolYear, sprak: sprak })
-        });
+        await invokeCommand('lagre_nytt_fag', { navn: n, dager: d, leksedager: l, skoleaar: currentSchoolYear, sprak: sprak });
         await loadSettings();
         document.getElementById('modal-fag').style.display = 'none';
     } catch (e) {
@@ -1172,11 +1128,7 @@ document.getElementById('save-subject-btn').addEventListener('click', async () =
 window.deleteSubject = async function (n) {
     if (confirm(`Er du sikker på at du vil slette faget "${n}"? Ukeplaner i historikken beholdes, men faget fjernes fra listen.`)) {
         try {
-            await fetch(`${API_URL}/fag/slett`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ navn: n })
-            });
+            await invokeCommand('slett_fag', { navn: n });
             await loadSettings();
             document.getElementById('modal-fag').style.display = 'none';
         } catch (e) { }
@@ -1187,20 +1139,11 @@ window.renameSubject = async function (oldName) {
     const newName = prompt("Skriv inn nytt navn på faget:", oldName);
     if (newName && newName !== oldName) {
         try {
-            const res = await fetch(`${API_URL}/fag/endre_navn`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gammeltNavn: oldName, nyttNavn: newName })
-            });
-            if (!res.ok) {
-                const err = await res.json();
-                alert(err.error);
-                return;
-            }
+            await invokeCommand('endre_navn_fag', { gammeltNavn: oldName, nyttNavn: newName });
             await loadSettings();
             document.getElementById('modal-fag').style.display = 'none';
         } catch (e) {
-            alert("Feil ved endring av navn.");
+            alert(e || "Feil ved endring av navn.");
         }
     }
 };
@@ -1295,7 +1238,7 @@ async function renderPreview(c, d = null) {
         }
 
         try {
-            const promises = subjects.map(f => fetch(`${API_URL}/plan?uke=${uke}&år=${aar}&fag=${encodeURIComponent(f.navn)}`).then(r => r.ok ? r.json() : null));
+            const promises = subjects.map(f => invokeCommand('hent_plan', { uke: Number(uke), ar: Number(aar), fag: f.navn }).catch(() => null));
             const plans = await Promise.all(promises);
 
             el.innerHTML = '';
@@ -1336,8 +1279,7 @@ async function renderPreview(c, d = null) {
             if (fag) {
                 const previewUke = document.getElementById('preview-uke-input')?.value || document.getElementById('uke-input').value;
                 const previewAar = document.getElementById('aar-input').value;
-                const res = await fetch(`${API_URL}/plan?uke=${previewUke}&år=${previewAar}&fag=${encodeURIComponent(fag)}`);
-                d = await res.json();
+                d = await invokeCommand('hent_plan', { uke: Number(previewUke), ar: Number(previewAar), fag: fag });
             }
         } catch (e) { }
     }
@@ -1415,7 +1357,7 @@ window.utforSok = async function () {
     const c = document.getElementById('sok-resultat-container');
     c.innerHTML = '<p style="color:white; padding:10px;">Søker...</p>';
     try {
-        const r = await (await fetch(`${API_URL}/sok?fag=${encodeURIComponent(document.getElementById('sok-fag').value)}&q=${encodeURIComponent(document.getElementById('sok-tekst').value)}`)).json();
+        const r = await invokeCommand('sok_planer', { fag: document.getElementById('sok-fag').value, q: document.getElementById('sok-tekst').value });
         c.innerHTML = '';
         if (r.length === 0) c.innerHTML = '<p style="color:white; padding:10px;">Ingen treff funnet.</p>';
         r.forEach(d => renderPreview('sok-resultat-container', d));
@@ -1443,7 +1385,7 @@ async function hentTidslinje() {
     const c = document.getElementById('tidslinje-liste');
     c.innerHTML = '<p style="color:white; padding: 15px;">Laster...</p>';
     try {
-        const r = await (await fetch(`${API_URL}/tidslinje?fag=${encodeURIComponent(fagNavn)}`)).json();
+        const r = await invokeCommand('hent_tidslinje', { fag: fagNavn });
         c.innerHTML = '';
         if (r.length === 0) {
             c.innerHTML = '<p style="color:white; padding: 15px;">Ingen planer funnet.</p>';
@@ -1458,7 +1400,7 @@ async function hentTidslinje() {
             i.className = 'timeline-item';
             i.innerHTML = `<div class="timeline-info">${cfg.editorHeaders.week} ${d.uke} - ${d.år}</div><div class="timeline-tema">${d.tema || 'Uten tema'}</div>`;
             i.onclick = async () => {
-                const p = await (await fetch(`${API_URL}/plan?uke=${d.uke}&år=${d.år}&fag=${encodeURIComponent(fagNavn)}`)).json();
+                const p = await invokeCommand('hent_plan', { uke: d.uke, ar: d.år, fag: fagNavn });
                 visModalMedPlan(p);
             };
             c.appendChild(i);
@@ -1612,17 +1554,12 @@ async function initApp() {
             if (sidebarVer) sidebarVer.textContent = `v${ver}`;
         } catch (e) { }
     }
-    const checkBackend = async () => {
-        try {
-            const res = await fetch(`${API_URL}/fag`);
-            if (res.ok) {
-                loadSubjects();
-                checkTauriUpdate();
-            }
-            else setTimeout(checkBackend, 500);
-        } catch (e) { setTimeout(checkBackend, 500); }
-    };
-    checkBackend();
+    try {
+        await loadSubjects();
+        checkTauriUpdate();
+    } catch (e) {
+        console.error("Feil ved oppstart:", e);
+    }
 }
 
 initApp();

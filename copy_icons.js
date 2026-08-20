@@ -67,23 +67,4 @@ if (!fs.existsSync(iconsDir)) {
     }
 }
 
-const distBackendExe = path.join(__dirname, 'dist', 'ukeplan_backend.exe');
-const backendExeSrc = path.join(__dirname, 'ukeplan_backend.exe');
-const backendExeDst = path.join(__dirname, 'src-tauri', 'ukeplan_backend.exe');
-
-if (fs.existsSync(distBackendExe)) {
-    try {
-        fs.copyFileSync(distBackendExe, backendExeSrc);
-        fs.copyFileSync(distBackendExe, backendExeDst);
-    } catch (e) {
-        console.warn('Advarsel ved kopiering fra dist/ukeplan_backend.exe:', e.message);
-    }
-} else if (fs.existsSync(backendExeSrc)) {
-    try {
-        fs.copyFileSync(backendExeSrc, backendExeDst);
-    } catch (e) {
-        console.warn('Advarsel: Kunne ikke kopiere ukeplan_backend.exe til src-tauri:', e.message);
-    }
-}
-
 console.log('Tauri ikoner, dist og vendor-ressurser er klargjort.');
