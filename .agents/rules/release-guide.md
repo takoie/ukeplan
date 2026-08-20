@@ -1,27 +1,38 @@
 # UkeplanLager Release & Deployment Guide
 
-Når brukeren ber om å opprette en ny release, oppdatere versjonen eller publisere en oppdatering (f.eks. "sett versjon til x.y.z og push til git"), skal du følge denne prosedyren:
+Når brukeren ber om å opprette en ny release, bygge installasjonsfiler eller pushe en oppdatering, skal du følge denne prosedyren:
 
 ## 1. Versjonshåndtering
 Oppdater versjonsnummeret konsekvent i følgende filer:
 1. `package.json`: `"version": "<VERSJON>"`
 2. `src-tauri/tauri.conf.json`: `"version": "<VERSJON>"`
 3. `src-tauri/Cargo.toml`: `version = "<VERSJON>"`
-4. `index.html`: Versjonsmerket i Om-seksjonen (`#app-version-badge`) til `v<VERSJON>`
+4. `index.html`: begge versjonsmerkene (`#app-version-badge` og `#sidebar-version`) til `v<VERSJON>`
 
-## 2. Commit, tagg og push
+## 2. Byggeprosessen
+Kjør:
 ```powershell
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock index.html
+npm run build:exe
+```
+Dette kjører `node build_helper.js`, som:
+- Lukker eventuelle kjørende app- og cargo-prosesser
+- Kjører `node copy_icons.js` for å synkronisere ikoner og web-ressurser
+- Kjører `npx tauri build` med `CARGO_TARGET_DIR=src-tauri/target_build`
+- Signerer med nøkkelen fra `~/.tauri-keys/` (hvis den finnes på maskinen)
+- Genererer installasjonsfiler i `src-tauri/target_build/release/bundle/nsis/`
+- Kopierer automatisk den nysignerte `latest.json` til rotmappen
+
+## 3. GitHub Git & Release
+For å publisere en release:
+```powershell
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock index.html latest.json
 git commit -m "release: v<VERSJON>"
 git tag -a v<VERSJON> -m "UkeplanLager v<VERSJON>"
 git push origin main --tags
+gh release create v<VERSJON> "src-tauri/target_build/release/bundle/nsis/UkeplanLager_<VERSJON>_x64-setup.exe" "latest.json" --title "UkeplanLager v<VERSJON>" --notes "<Endringsbeskrivelse>"
 ```
 
-## 3. Bygging og publisering skjer automatisk i CI
-En push av en `v*`-tag trigger GitHub Actions-workflowen [`release.yml`](../../.github/workflows/release.yml), som bygger Tauri/Rust-appen, signerer installasjonsfilen (hvis `TAURI_SIGNING_PRIVATE_KEY` er satt som GitHub Secret) og oppretter en GitHub Release med installer, signatur og `latest.json` automatisk.
+Dette trigger at eksisterende installasjoner automatisk oppdager den nye versjonen via GitHub releases og oppdaterer seg selv.
 
-**Du skal ikke** kjøre `npm run build:exe` eller `gh release create` manuelt for en vanlig release — det duplikerer det CI allerede gjør, og CI-bygget er alltid det som faktisk publiseres. Lokal bygging med `npm run build:exe` er kun for å teste en installasjonsfil før du pusher, ikke en del av selve utgivelsesløpet.
-
-Etter push: informer brukeren om at pushen var vellykket og at byggingen nå kjører automatisk i GitHub Actions (kan følges under Actions-fanen på repoet). Ikke vent på eller poll CI-jobben med mindre brukeren eksplisitt ber om det.
-
-Dette trigger at eksisterende installasjoner automatisk oppdager den nye versjonen via GitHub Releases og oppdaterer seg selv.
+## Viktig: ikke stol på GitHub Actions-workflowen
+`.github/workflows/release.yml` trigges automatisk ved push av en `v*`-tag eller push til `main`, men **feiler alltid** på signeringssteget («A public key has been found, but no private key») fordi `TAURI_SIGNING_PRIVATE_KEY` ikke er satt som GitHub Secret i repoet. Dette er bekreftet på flere kjøringer (`v2.6.0` og `v2.7.0`). Ikke vent på, poll, eller anta at denne jobben publiserer noe — den lokale byggingen og `gh release create` over er det som faktisk publiserer releasen. Brukeren har eksplisitt bedt om at releaser bygges lokalt, ikke via CI.
