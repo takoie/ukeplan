@@ -47,10 +47,10 @@ Eksisterende installasjoner oppdager den nye releasen automatisk via in-app-oppd
 
 ---
 
-## ⚠️ GitHub Actions-workflowen er ikke i bruk
-Repoet har en CI-workflow ([`.github/workflows/release.yml`](.github/workflows/release.yml)) som trigges automatisk ved push av en `v*`-tag eller push til `main`. Den **feiler for øyeblikket alltid** på signeringssteget, fordi `TAURI_SIGNING_PRIVATE_KEY` ikke er satt som GitHub Secret i repoet — bekreftet på både `v2.6.0`- og `v2.7.0`-kjøringene. Ikke vent på eller stol på denne jobben for å publisere en release; følg steg 2–3 over i stedet.
+## ⚠️ GitHub Actions-workflowen kjører ikke lenger automatisk
+Repoet har en CI-workflow ([`.github/workflows/release.yml`](.github/workflows/release.yml)) som tidligere trigget automatisk ved push av en `v*`-tag eller push til `main`. Den feilet alltid på signeringssteget fordi `TAURI_SIGNING_PRIVATE_KEY` ikke er satt som GitHub Secret i repoet (bekreftet på både `v2.6.0`- og `v2.7.0`-kjøringene), så den automatiske triggeren er fjernet — workflowen kjører nå **kun manuelt** (`workflow_dispatch`, via Actions-fanen eller `gh workflow run`). Releaser publiseres via steg 2–3 over.
 
-Hvis CI-signering ønskes senere, må disse legges inn under repoets **Settings → Secrets and variables → Actions**:
+Hvis CI-signering ønskes senere, må disse legges inn under repoets **Settings → Secrets and variables → Actions**, og den automatiske triggeren kan legges tilbake i workflow-filen:
 - `TAURI_SIGNING_PRIVATE_KEY` — innholdet i `~/.tauri-keys/ukeplanlager_updater.key`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — innholdet i `~/.tauri-keys/ukeplanlager_updater.password.txt`
 
