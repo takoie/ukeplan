@@ -13,3 +13,5 @@ src-tauri/target_build
 src-tauri/gen/schemas
 latest.json
 graphify-out
+
+.worktrees/
