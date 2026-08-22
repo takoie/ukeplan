@@ -32,12 +32,19 @@ pub fn lagre_forhandsvisning_som_pdf(
     // `with_webview` bare poster en oppgave til hovedtråden når den kalles fra en
     // annen tråd (som Tauri-kommandoer som regel kjører på) - den venter IKKE på at
     // lukket fullfører. Derfor må vi selv blokkere på svaret via en kanal.
+    //
+    // MERK: Vi bruker IKKE `PrintToPdfCompletedHandler::wait_for_async_operation` her,
+    // fordi den pumper en NESTET Win32-meldingsløkke (GetMessage) inne i hovedtråden
+    // mens den allerede behandler `with_webview`-oppgaven - det låste seg i praksis.
+    // I stedet registrerer vi completion-callbacken og returnerer fra `with_webview`
+    // med det samme; den vanlige, allerede kjørende event-loopen leverer svaret senere.
     let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
     let path_for_pdf = path_str.clone();
 
     window
         .with_webview(move |webview| {
-            let outcome: Result<(), String> = (|| unsafe {
+            let tx_feil = tx.clone();
+            let setup: Result<(), String> = (|| unsafe {
                 let core = webview
                     .controller()
                     .CoreWebView2()
@@ -66,25 +73,27 @@ pub fn lagre_forhandsvisning_som_pdf(
                 settings.SetMarginRight(0.4).map_err(|e| e.to_string())?;
 
                 let hpath = HSTRING::from(path_for_pdf.as_str());
-                PrintToPdfCompletedHandler::wait_for_async_operation(
-                    Box::new(move |handler| {
-                        core7
-                            .PrintToPdf(&hpath, &settings, &handler)
-                            .map_err(Into::into)
-                    }),
-                    Box::new(|hr: windows::core::Result<()>, success: bool| {
-                        hr?;
-                        if success {
-                            Ok(())
-                        } else {
-                            Err(windows::core::Error::from_win32())
-                        }
-                    }),
-                )
-                .map_err(|e| e.to_string())
+                let tx_ferdig = tx.clone();
+                let handler = PrintToPdfCompletedHandler::create(Box::new(
+                    move |hr: windows::core::Result<()>, success: bool| {
+                        let utfall = match hr {
+                            Err(e) => Err(e.to_string()),
+                            Ok(()) if success => Ok(()),
+                            Ok(()) => Err("PrintToPdf fullførte uten suksess".to_string()),
+                        };
+                        let _ = tx_ferdig.send(utfall);
+                        Ok(())
+                    },
+                ));
+
+                core7
+                    .PrintToPdf(&hpath, &settings, &handler)
+                    .map_err(|e| e.to_string())
             })();
 
-            let _ = tx.send(outcome);
+            if let Err(e) = setup {
+                let _ = tx_feil.send(Err(e));
+            }
         })
         .map_err(|e| e.to_string())?;
 
