@@ -60,6 +60,10 @@ pub fn lagre_forhandsvisning_som_pdf(
                 settings
                     .SetOrientation(COREWEBVIEW2_PRINT_ORIENTATION_PORTRAIT)
                     .map_err(|e| e.to_string())?;
+                settings.SetMarginTop(0.4).map_err(|e| e.to_string())?;
+                settings.SetMarginBottom(0.4).map_err(|e| e.to_string())?;
+                settings.SetMarginLeft(0.4).map_err(|e| e.to_string())?;
+                settings.SetMarginRight(0.4).map_err(|e| e.to_string())?;
 
                 let hpath = HSTRING::from(path_for_pdf.as_str());
                 PrintToPdfCompletedHandler::wait_for_async_operation(
@@ -87,4 +91,34 @@ pub fn lagre_forhandsvisning_som_pdf(
     rx.recv()
         .map_err(|_| "Fikk ikke svar fra PrintToPdf".to_string())?
         .map(|_| Some(path_str))
+}
+
+#[tauri::command]
+pub fn vis_pdf_i_utforsker(sti: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(format!("/select,{}", sti))
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .args(["-R", &sti])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let mappe = std::path::Path::new(&sti)
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or(sti);
+        std::process::Command::new("xdg-open")
+            .arg(mappe)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
