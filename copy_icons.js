@@ -39,12 +39,23 @@ if (!fs.existsSync(distVendorDir)) {
     }
 });
 
-['quill.js', 'quill.snow.css', 'html2canvas.min.js'].forEach(file => {
+['quill.js', 'quill.snow.css', 'html2canvas.min.js', 'fontawesome-all.min.css'].forEach(file => {
     const src = path.join(vendorDir, file);
     if (fs.existsSync(src)) {
         fs.copyFileSync(src, path.join(distVendorDir, file));
     }
 });
+
+const webfontsSrcDir = path.join(vendorDir, 'webfonts');
+if (fs.existsSync(webfontsSrcDir)) {
+    const webfontsDistDir = path.join(distVendorDir, 'webfonts');
+    if (!fs.existsSync(webfontsDistDir)) {
+        fs.mkdirSync(webfontsDistDir, { recursive: true });
+    }
+    fs.readdirSync(webfontsSrcDir).forEach(file => {
+        fs.copyFileSync(path.join(webfontsSrcDir, file), path.join(webfontsDistDir, file));
+    });
+}
 
 // 3. Klargjør ikoner og ressurser KUN dersom mappen ikke eksisterer fra før
 const iconsDir = path.join(__dirname, 'src-tauri', 'icons');
