@@ -86,9 +86,23 @@ pub fn lagre_forhandsvisning_som_pdf(
                     },
                 ));
 
-                core7
+                let r = core7
                     .PrintToPdf(&hpath, &settings, &handler)
-                    .map_err(|e| e.to_string())
+                    .map_err(|e| e.to_string());
+
+                // PrintToPdf er asynkron - fullføringen skjer et godt stykke etter at
+                // selve kallet returnerer. `settings`, `hpath` og `handler` blir ellers
+                // droppet (COM Release) med det samme denne lukkeren avsluttes, lenge
+                // før operasjonen faktisk er ferdig - det ga en use-after-free/krasj i
+                // praksis (observert som appen som låser seg / avsluttes uventet).
+                // Behold derfor bevisst én ekstra referanse til hver til vi vet
+                // operasjonen er ferdig (liten, engangs "lekkasje" per PDF-eksport,
+                // akseptabelt for en sjelden, brukerinitiert handling).
+                std::mem::forget(settings.clone());
+                std::mem::forget(hpath.clone());
+                std::mem::forget(handler.clone());
+
+                r
             })();
 
             if let Err(e) = setup {
