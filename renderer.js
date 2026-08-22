@@ -1405,6 +1405,16 @@ document.getElementById('pdf-export-status-actions')?.addEventListener('click', 
     }
 });
 
+function stripHtmlToText(html) {
+    if (!html) return '';
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    container.querySelectorAll('p, li, br, div').forEach(el => {
+        el.insertAdjacentText('afterend', '\n');
+    });
+    return container.textContent.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 document.getElementById('pdf-export-start-btn')?.addEventListener('click', async () => {
     const checkboxes = Array.from(document.querySelectorAll('.pdf-export-fag-checkbox:checked'));
     if (checkboxes.length === 0) {
@@ -1416,7 +1426,6 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
     const uke = document.getElementById('preview-uke-input')?.value || document.getElementById('uke-input').value;
     const aar = document.getElementById('aar-input').value;
     const hideHeader = document.getElementById('toggle-hide-header')?.checked || false;
-    const printArea = document.getElementById('print-area');
 
     showPdfExportStatus({ icon: 'fa-spinner fa-spin', iconColor: '#6366f1', text: 'Genererer PDF...', actions: [] });
 
@@ -1424,12 +1433,25 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
         const plans = await Promise.all(
             fagNavn.map(fag => invokeCommand('hent_plan', { uke: Number(uke), ar: Number(aar), fag }).catch(() => null))
         );
-        const cardsHtml = plans
+        const fagListe = plans
             .filter(p => p && (p.tema || p.aktivitet || p.arbeidskrav))
-            .map(p => buildCardHtml(p, hideHeader))
-            .join('');
+            .map(p => {
+                const fagObj = currentFagData.find(f => f.navn === p.fag);
+                const sprak = fagObj ? fagObj.sprak || "Bokmål" : "Bokmål";
+                const cfg = SPRAK_CONFIG[sprak] || SPRAK_CONFIG["Bokmål"];
+                return {
+                    headerTekst: hideHeader ? null : p.fag,
+                    ukeLabel: `${cfg.previewHeaders.weekPrefix} ${p.uke}`,
+                    temaLabel: cfg.previewHeaders.topic,
+                    aktivitetLabel: cfg.previewHeaders.activities,
+                    arbeidskravLabel: cfg.previewHeaders.homework,
+                    tema: p.tema || '-',
+                    aktivitet: stripHtmlToText(p.aktivitet) || '-',
+                    arbeidskrav: stripHtmlToText(p.arbeidskrav) || '-',
+                };
+            });
 
-        if (!cardsHtml) {
+        if (fagListe.length === 0) {
             showPdfExportStatus({
                 icon: 'fa-exclamation-triangle', iconColor: '#f59e0b',
                 text: 'Ingen ukeplaner funnet for de valgte fagene denne uken.',
@@ -1438,13 +1460,7 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
             return;
         }
 
-        printArea.innerHTML = cardsHtml;
-        let result;
-        try {
-            result = await invokeCommand('lagre_forhandsvisning_som_pdf', { uke: Number(uke) });
-        } finally {
-            printArea.innerHTML = '';
-        }
+        const result = await invokeCommand('lagre_forhandsvisning_som_pdf', { uke: Number(uke), fagListe });
 
         if (result) {
             pdfExportLastPath = result;
@@ -1462,7 +1478,6 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
             closePdfExportModal();
         }
     } catch (e) {
-        printArea.innerHTML = '';
         showPdfExportStatus({
             icon: 'fa-exclamation-triangle', iconColor: '#ef4444',
             text: 'Kunne ikke lagre PDF: ' + (e.message || e),
