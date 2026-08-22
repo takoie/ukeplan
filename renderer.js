@@ -1406,52 +1406,27 @@ document.getElementById('pdf-export-status-actions')?.addEventListener('click', 
 });
 
 let pdfBildeTeller = 0;
-function htmlTilSegmenter(html, bilderUt) {
-    if (!html || !html.trim()) return [{ type: 'text', text: '-' }];
-
-    const container = document.createElement('div');
-    container.innerHTML = html;
-
-    const segmenter = [];
-    let gjeldendeTekst = '';
-
-    function tomTekst() {
-        const t = gjeldendeTekst.replace(/\n{3,}/g, '\n\n').trim();
-        if (t) segmenter.push({ type: 'text', text: t });
-        gjeldendeTekst = '';
+async function fagKortTilSideNokkel(plan, hideHeader, bilderUt) {
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-99999px';
+    wrapper.style.top = '0';
+    wrapper.style.width = '780px';
+    wrapper.innerHTML = buildCardHtml(plan, hideHeader);
+    document.body.appendChild(wrapper);
+    try {
+        const canvas = await html2canvas(wrapper.firstElementChild, {
+            scale: 2, backgroundColor: '#ffffff', logging: false, useCORS: true,
+        });
+        const dataUrl = canvas.toDataURL('image/png');
+        const match = dataUrl.match(/^data:image\/png;base64,(.+)$/);
+        if (!match) return null;
+        const key = `side_${pdfBildeTeller++}`;
+        bilderUt.push({ key, dataB64: match[1] });
+        return key;
+    } finally {
+        document.body.removeChild(wrapper);
     }
-
-    function gaGjennom(node) {
-        if (node.nodeType === Node.TEXT_NODE) {
-            gjeldendeTekst += node.textContent;
-            return;
-        }
-        if (node.nodeType !== Node.ELEMENT_NODE) return;
-
-        const tag = node.tagName.toLowerCase();
-        if (tag === 'img') {
-            const src = node.getAttribute('src') || '';
-            const match = src.match(/^data:image\/[a-zA-Z0-9.+-]+;base64,(.+)$/);
-            if (match) {
-                tomTekst();
-                const key = `img_${pdfBildeTeller++}`;
-                bilderUt.push({ key, dataB64: match[1] });
-                segmenter.push({ type: 'image', key });
-            }
-            return; // ekstern/ukjent bildekilde ellers - kan ikke bygges inn i PDF-en
-        }
-
-        if (tag === 'li') gjeldendeTekst += '- ';
-        node.childNodes.forEach(gaGjennom);
-        if (tag === 'p' || tag === 'div' || tag === 'li' || tag === 'br') {
-            gjeldendeTekst += '\n';
-        }
-    }
-
-    container.childNodes.forEach(gaGjennom);
-    tomTekst();
-
-    return segmenter.length ? segmenter : [{ type: 'text', text: '-' }];
 }
 
 document.getElementById('pdf-export-start-btn')?.addEventListener('click', async () => {
@@ -1472,26 +1447,9 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
         const plans = await Promise.all(
             fagNavn.map(fag => invokeCommand('hent_plan', { uke: Number(uke), ar: Number(aar), fag }).catch(() => null))
         );
-        const bilder = [];
-        const fagListe = plans
-            .filter(p => p && (p.tema || p.aktivitet || p.arbeidskrav))
-            .map(p => {
-                const fagObj = currentFagData.find(f => f.navn === p.fag);
-                const sprak = fagObj ? fagObj.sprak || "Bokmål" : "Bokmål";
-                const cfg = SPRAK_CONFIG[sprak] || SPRAK_CONFIG["Bokmål"];
-                return {
-                    headerTekst: hideHeader ? null : p.fag,
-                    ukeLabel: `${cfg.previewHeaders.weekPrefix} ${p.uke}`,
-                    temaLabel: cfg.previewHeaders.topic,
-                    aktivitetLabel: cfg.previewHeaders.activities,
-                    arbeidskravLabel: cfg.previewHeaders.homework,
-                    tema: [{ type: 'text', text: p.tema || '-' }],
-                    aktivitet: htmlTilSegmenter(p.aktivitet, bilder),
-                    arbeidskrav: htmlTilSegmenter(p.arbeidskrav, bilder),
-                };
-            });
+        const gyldigePlaner = plans.filter(p => p && (p.tema || p.aktivitet || p.arbeidskrav));
 
-        if (fagListe.length === 0) {
+        if (gyldigePlaner.length === 0) {
             showPdfExportStatus({
                 icon: 'fa-exclamation-triangle', iconColor: '#f59e0b',
                 text: 'Ingen ukeplaner funnet for de valgte fagene denne uken.',
@@ -1500,7 +1458,23 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
             return;
         }
 
-        const result = await invokeCommand('lagre_forhandsvisning_som_pdf', { uke: Number(uke), fagListe, bilder });
+        const bilder = [];
+        const sider = [];
+        for (const p of gyldigePlaner) {
+            const key = await fagKortTilSideNokkel(p, hideHeader, bilder);
+            if (key) sider.push({ key });
+        }
+
+        if (sider.length === 0) {
+            showPdfExportStatus({
+                icon: 'fa-exclamation-triangle', iconColor: '#ef4444',
+                text: 'Kunne ikke generere sidebilder for PDF-en.',
+                actions: [{ action: 'close', cls: 'btn-secondary', html: 'Lukk' }],
+            });
+            return;
+        }
+
+        const result = await invokeCommand('lagre_forhandsvisning_som_pdf', { uke: Number(uke), sider, bilder });
 
         if (result) {
             pdfExportLastPath = result;
