@@ -1333,6 +1333,32 @@ window.kopierFagBilde = function (cardId, fagnavn) {
     });
 };
 
+document.getElementById('lagre-pdf-btn')?.addEventListener('click', async () => {
+    const printArea = document.getElementById('print-area');
+    const previewContainer = document.getElementById('preview-container');
+    const uke = document.getElementById('preview-uke-input')?.value || document.getElementById('uke-input').value;
+    const status = document.getElementById('bilde-status');
+
+    if (!previewContainer || !previewContainer.innerHTML.trim()) {
+        if (status) { status.textContent = 'Ingen plan å lagre.'; status.style.color = '#e74c3c'; }
+        return;
+    }
+
+    printArea.innerHTML = previewContainer.innerHTML;
+
+    try {
+        const result = await invokeCommand('lagre_forhandsvisning_som_pdf', { uke: Number(uke) });
+        if (result) {
+            if (status) { status.textContent = `Lagret: ${result}`; status.style.color = '#43b581'; }
+        }
+        // result === null betyr at brukeren avbrøt lagre-dialogen — ingen feilmelding.
+    } catch (e) {
+        if (status) { status.textContent = 'Kunne ikke lagre PDF: ' + (e.message || e); status.style.color = '#e74c3c'; }
+    } finally {
+        printArea.innerHTML = '';
+    }
+});
+
 document.getElementById('oppdater-preview-btn')?.addEventListener('click', () => renderPreview('preview-container'));
 document.getElementById('kopier-bilde-btn')?.addEventListener('click', () => {
     const singleCard = document.getElementById('single-preview-card') || document.querySelector('#preview-container .preview-card');
