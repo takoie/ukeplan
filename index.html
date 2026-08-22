@@ -531,6 +531,34 @@
         </div>
     </div>
 
+    <div id="modal-pdf-export" class="modal" style="display: none;">
+        <div class="modal-content glass-panel" style="max-width: 480px;">
+            <span class="close-modal">&times;</span>
+
+            <div id="pdf-export-view-select">
+                <h3 style="color: white; margin-bottom: 4px; font-size: 18px;"><i class="fas fa-file-pdf"
+                        style="color:#ef4444;"></i> Lagre som PDF</h3>
+                <p style="color:#94a3b8; font-size:13px; margin-bottom:16px;">Velg hvilke fag som skal være med i
+                    utskriften for uke <span id="pdf-export-uke-label"></span>.</p>
+                <div id="pdf-export-fag-list"
+                    style="display:flex; flex-direction:column; gap:8px; max-height: 320px; overflow-y:auto; margin-bottom: 20px;">
+                </div>
+                <div style="display:flex; gap:12px; justify-content:flex-end;">
+                    <button class="btn btn-secondary" id="pdf-export-avbryt-btn">Avbryt</button>
+                    <button class="btn btn-success" id="pdf-export-start-btn"><i class="fas fa-file-export"></i>
+                        Eksporter</button>
+                </div>
+            </div>
+
+            <div id="pdf-export-view-status" style="display:none; text-align:center;">
+                <div id="pdf-export-status-icon" style="font-size: 38px; margin-bottom: 12px;"></div>
+                <p id="pdf-export-status-text"
+                    style="color:white; font-size:14px; margin-bottom:22px; word-break:break-all;"></p>
+                <div id="pdf-export-status-actions" style="display:flex; gap:12px; justify-content:center;"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="vendor/quill.js"></script>
     <script src="renderer.js"></script>
 </body>

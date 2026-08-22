@@ -1053,17 +1053,33 @@ select:focus {
         width: 100%;
         background: white;
         color: black;
-        padding: 20px;
+        padding: 0;
     }
 
-    .preview-card {
+    #print-area .preview-card {
         background: white !important;
         color: black !important;
         border: 1px solid #ccc;
         box-shadow: none;
         break-inside: avoid;
-        margin-bottom: 30px;
+        margin-bottom: 14px;
         border-radius: 0;
+        font-size: 10px;
+    }
+
+    #print-area .preview-header {
+        padding: 4px 12px;
+        font-size: 1em;
+    }
+
+    #print-area .preview-section {
+        padding: 8px 12px;
+    }
+
+    #print-area .preview-h {
+        font-size: 0.95em;
+        margin-bottom: 6px;
+        padding-bottom: 4px;
     }
 }
 

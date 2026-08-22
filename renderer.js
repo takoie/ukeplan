@@ -517,6 +517,8 @@ closeBtns.forEach(btn => btn.onclick = () => {
     document.getElementById("modal-fag").style.display = "none";
     const mNull = document.getElementById("modal-nullstill");
     if (mNull) mNull.style.display = "none";
+    const mPdf = document.getElementById("modal-pdf-export");
+    if (mPdf) mPdf.style.display = "none";
 });
 window.onclick = (e) => { if (e.target.classList.contains('modal')) e.target.style.display = "none"; };
 
@@ -1333,29 +1335,139 @@ window.kopierFagBilde = function (cardId, fagnavn) {
     });
 };
 
-document.getElementById('lagre-pdf-btn')?.addEventListener('click', async () => {
-    const printArea = document.getElementById('print-area');
-    const previewContainer = document.getElementById('preview-container');
-    const uke = document.getElementById('preview-uke-input')?.value || document.getElementById('uke-input').value;
-    const status = document.getElementById('bilde-status');
+let pdfExportLastPath = null;
 
+function openPdfExportModal() {
+    const modal = document.getElementById('modal-pdf-export');
+    const list = document.getElementById('pdf-export-fag-list');
+    const showAll = document.getElementById('toggle-all-fag')?.checked || false;
+    const singleFag = document.getElementById('preview-fag-select')?.value;
+    const subjects = currentFagData.filter(f => f.skoleaar === currentSchoolYear);
+    const uke = document.getElementById('preview-uke-input')?.value || document.getElementById('uke-input').value;
+
+    document.getElementById('pdf-export-uke-label').textContent = uke;
+
+    list.innerHTML = '';
+    if (subjects.length === 0) {
+        list.innerHTML = '<p style="color:#94a3b8; font-size:13px;">Ingen fag registrert for dette skoleåret.</p>';
+    } else {
+        subjects.forEach(f => {
+            const checked = showAll || f.navn === singleFag;
+            const row = document.createElement('label');
+            row.className = 'switch-label';
+            row.style.width = '100%';
+            row.style.justifyContent = 'space-between';
+            row.innerHTML = `<span>${f.navn}</span><span class="switch"><input type="checkbox" class="pdf-export-fag-checkbox" data-fag="${f.navn}" ${checked ? 'checked' : ''}><span class="slider"></span></span>`;
+            list.appendChild(row);
+        });
+    }
+
+    document.getElementById('pdf-export-view-select').style.display = '';
+    document.getElementById('pdf-export-view-status').style.display = 'none';
+    modal.style.display = 'flex';
+}
+
+function closePdfExportModal() {
+    document.getElementById('modal-pdf-export').style.display = 'none';
+}
+
+function showPdfExportStatus({ icon, iconColor, text, actions }) {
+    document.getElementById('pdf-export-view-select').style.display = 'none';
+    document.getElementById('pdf-export-view-status').style.display = '';
+    document.getElementById('pdf-export-status-icon').innerHTML = `<i class="fas ${icon}" style="color:${iconColor};"></i>`;
+    document.getElementById('pdf-export-status-text').textContent = text;
+    document.getElementById('pdf-export-status-actions').innerHTML = actions
+        .map(a => `<button class="btn ${a.cls}" data-action="${a.action}">${a.html}</button>`)
+        .join('');
+}
+
+document.getElementById('lagre-pdf-btn')?.addEventListener('click', () => {
+    const previewContainer = document.getElementById('preview-container');
+    const status = document.getElementById('bilde-status');
     if (!previewContainer || !previewContainer.innerHTML.trim()) {
         if (status) { status.textContent = 'Ingen plan å lagre.'; status.style.color = '#e74c3c'; }
         return;
     }
+    openPdfExportModal();
+});
 
-    printArea.innerHTML = previewContainer.innerHTML;
+document.getElementById('pdf-export-avbryt-btn')?.addEventListener('click', closePdfExportModal);
+
+document.getElementById('pdf-export-status-actions')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    if (btn.dataset.action === 'close') {
+        closePdfExportModal();
+    } else if (btn.dataset.action === 'open-file' && pdfExportLastPath) {
+        try { await window.__TAURI__.shell.open(pdfExportLastPath); } catch (err) { /* ignorer */ }
+    } else if (btn.dataset.action === 'open-folder' && pdfExportLastPath) {
+        invokeCommand('vis_pdf_i_utforsker', { sti: pdfExportLastPath });
+    }
+});
+
+document.getElementById('pdf-export-start-btn')?.addEventListener('click', async () => {
+    const checkboxes = Array.from(document.querySelectorAll('.pdf-export-fag-checkbox:checked'));
+    if (checkboxes.length === 0) {
+        alert('Velg minst ett fag.');
+        return;
+    }
+
+    const fagNavn = checkboxes.map(cb => cb.dataset.fag);
+    const uke = document.getElementById('preview-uke-input')?.value || document.getElementById('uke-input').value;
+    const aar = document.getElementById('aar-input').value;
+    const hideHeader = document.getElementById('toggle-hide-header')?.checked || false;
+    const printArea = document.getElementById('print-area');
+
+    showPdfExportStatus({ icon: 'fa-spinner fa-spin', iconColor: '#6366f1', text: 'Genererer PDF...', actions: [] });
 
     try {
-        const result = await invokeCommand('lagre_forhandsvisning_som_pdf', { uke: Number(uke) });
-        if (result) {
-            if (status) { status.textContent = `Lagret: ${result}`; status.style.color = '#43b581'; }
+        const plans = await Promise.all(
+            fagNavn.map(fag => invokeCommand('hent_plan', { uke: Number(uke), ar: Number(aar), fag }).catch(() => null))
+        );
+        const cardsHtml = plans
+            .filter(p => p && (p.tema || p.aktivitet || p.arbeidskrav))
+            .map(p => buildCardHtml(p, hideHeader))
+            .join('');
+
+        if (!cardsHtml) {
+            showPdfExportStatus({
+                icon: 'fa-exclamation-triangle', iconColor: '#f59e0b',
+                text: 'Ingen ukeplaner funnet for de valgte fagene denne uken.',
+                actions: [{ action: 'close', cls: 'btn-secondary', html: 'Lukk' }],
+            });
+            return;
         }
-        // result === null betyr at brukeren avbrøt lagre-dialogen — ingen feilmelding.
+
+        printArea.innerHTML = cardsHtml;
+        let result;
+        try {
+            result = await invokeCommand('lagre_forhandsvisning_som_pdf', { uke: Number(uke) });
+        } finally {
+            printArea.innerHTML = '';
+        }
+
+        if (result) {
+            pdfExportLastPath = result;
+            showPdfExportStatus({
+                icon: 'fa-check-circle', iconColor: '#43b581',
+                text: `Lagret: ${result}`,
+                actions: [
+                    { action: 'open-folder', cls: 'btn-secondary', html: '<i class="fas fa-folder-open"></i> Åpne mappe' },
+                    { action: 'open-file', cls: 'btn-success', html: '<i class="fas fa-file-pdf"></i> Åpne fil' },
+                    { action: 'close', cls: 'btn-secondary', html: 'Lukk' },
+                ],
+            });
+        } else {
+            // result === null betyr at brukeren avbrøt lagre-dialogen — ingen feilmelding.
+            closePdfExportModal();
+        }
     } catch (e) {
-        if (status) { status.textContent = 'Kunne ikke lagre PDF: ' + (e.message || e); status.style.color = '#e74c3c'; }
-    } finally {
         printArea.innerHTML = '';
+        showPdfExportStatus({
+            icon: 'fa-exclamation-triangle', iconColor: '#ef4444',
+            text: 'Kunne ikke lagre PDF: ' + (e.message || e),
+            actions: [{ action: 'close', cls: 'btn-secondary', html: 'Lukk' }],
+        });
     }
 });
 
