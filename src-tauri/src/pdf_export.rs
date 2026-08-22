@@ -1,8 +1,30 @@
 use std::collections::BTreeMap;
 
+use printpdf::*;
 use serde::Deserialize;
 use tauri::AppHandle;
 use tauri_plugin_dialog::DialogExt;
+
+const MM_TO_PT: f32 = 2.834_645_7;
+const PAGE_W: f32 = 210.0 * MM_TO_PT;
+const PAGE_H: f32 = 297.0 * MM_TO_PT;
+const MARGIN: f32 = 12.0 * MM_TO_PT;
+
+const COL_GAP: f32 = 6.0;
+const CARD_PAD: f32 = 8.0;
+const CARD_GAP: f32 = 10.0;
+const HEADER_H: f32 = 20.0;
+const LABEL_SIZE: f32 = 8.0;
+const BODY_SIZE: f32 = 9.0;
+const LINE_H: f32 = BODY_SIZE * 1.4;
+const AVG_CHAR_W_RATIO: f32 = 0.52; // grov, men trygg tilnærming for Helvetica
+
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum PdfSegment {
+    Text { text: String },
+    Image { key: String },
+}
 
 #[derive(Deserialize)]
 pub struct PdfBilde {
@@ -23,11 +45,13 @@ pub struct PdfFag {
     aktivitet_label: String,
     #[serde(rename = "arbeidskravLabel")]
     arbeidskrav_label: String,
-    tema: String,
-    #[serde(rename = "aktivitetHtml")]
-    aktivitet_html: String,
-    #[serde(rename = "arbeidskravHtml")]
-    arbeidskrav_html: String,
+    tema: Vec<PdfSegment>,
+    aktivitet: Vec<PdfSegment>,
+    arbeidskrav: Vec<PdfSegment>,
+}
+
+struct Bilde {
+    raw: RawImage,
 }
 
 #[tauri::command]
@@ -58,99 +82,336 @@ pub fn lagre_forhandsvisning_som_pdf(
         _ => return Err("Ugyldig filsti".to_string()),
     };
 
-    let html = bygg_html(&fag_liste);
-
-    let mut images: BTreeMap<String, printpdf::Base64OrRaw> = BTreeMap::new();
+    let mut bilde_data: BTreeMap<String, Bilde> = BTreeMap::new();
     for b in &bilder {
-        images.insert(b.key.clone(), printpdf::Base64OrRaw::B64(b.data_b64.clone()));
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        let Ok(bytes) = STANDARD.decode(&b.data_b64) else {
+            continue;
+        };
+        let mut warnings = Vec::new();
+        if let Ok(raw) = RawImage::decode_from_bytes(&bytes, &mut warnings) {
+            bilde_data.insert(b.key.clone(), Bilde { raw });
+        }
     }
-    let fonts: BTreeMap<String, printpdf::Base64OrRaw> = BTreeMap::new();
-    let options = printpdf::GeneratePdfOptions {
-        // Referer standard-14-fonten direkte i stedet for å bygge og bygge inn en
-        // subsettet font - unngår en glyph-indeks-bug i printpdf 0.12s (fortsatt
-        // umoden) HTML-motor der subsetting av bl.a. mellomrom kunne vise seg som
-        // feil tegn ("!") i PDF-leseren.
-        font_embedding: Some(false),
-        page_width: Some(210.0),
-        page_height: Some(297.0),
-        margin_top: Some(12.0),
-        margin_bottom: Some(12.0),
-        margin_left: Some(12.0),
-        margin_right: Some(12.0),
-        ..Default::default()
-    };
+
+    let mut doc = PdfDocument::new("Ukeplan");
+    let mut bilde_ids: BTreeMap<String, XObjectId> = BTreeMap::new();
+    for (key, b) in &bilde_data {
+        bilde_ids.insert(key.clone(), doc.add_image(&b.raw));
+    }
+
+    let mut layout = Layout::new();
+    for f in &fag_liste {
+        layout.tegn_fag(f, &bilde_data, &bilde_ids);
+    }
+    layout.avslutt_side();
+
+    let pages: Vec<PdfPage> = layout
+        .sider
+        .into_iter()
+        .map(|ops| PdfPage::new(Mm(210.0), Mm(297.0), ops))
+        .collect();
 
     let mut warnings = Vec::new();
-    let doc = printpdf::PdfDocument::from_html(&html, &images, &fonts, &options, &mut warnings)
-        .map_err(|e| e.to_string())?;
-
-    let mut save_warnings = Vec::new();
-    let bytes = doc.save(&printpdf::PdfSaveOptions::default(), &mut save_warnings);
+    let bytes = doc
+        .with_pages(pages)
+        .save(&PdfSaveOptions::default(), &mut warnings);
 
     std::fs::write(&path_str, &bytes).map_err(|e| e.to_string())?;
 
     Ok(Some(path_str))
 }
 
-fn html_escape(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
+struct Layout {
+    sider: Vec<Vec<Op>>,
+    ops: Vec<Op>,
+    y: f32,
 }
 
-fn bygg_html(fag_liste: &[PdfFag]) -> String {
-    let mut cards = String::new();
-
-    for f in fag_liste {
-        let header = match &f.header_tekst {
-            Some(h) if !h.is_empty() => format!(
-                r#"<div class="header"><span>{}</span><span>{}</span></div>"#,
-                html_escape(h),
-                html_escape(&f.uke_label)
-            ),
-            _ => String::new(),
-        };
-
-        // aktivitet/arbeidskrav kommer allerede som gyldig HTML fra tekstredigereren
-        // (avsnitt, fet skrift, lister, bilder) og settes inn direkte - kun tema
-        // (ren tekst fra et enkelt inputfelt) trenger escaping.
-        cards.push_str(&format!(
-            r#"<div class="card">{header}<div class="grid">
-<div class="col col-tema"><div class="h">{tema_label}</div><div class="txt">{tema}</div></div>
-<div class="col col-akt"><div class="h">{akt_label}</div><div class="txt">{akt}</div></div>
-<div class="col col-krav"><div class="h">{krav_label}</div><div class="txt">{krav}</div></div>
-</div></div>"#,
-            header = header,
-            tema_label = html_escape(&f.tema_label),
-            tema = html_escape(&f.tema),
-            akt_label = html_escape(&f.aktivitet_label),
-            akt = f.aktivitet_html,
-            krav_label = html_escape(&f.arbeidskrav_label),
-            krav = f.arbeidskrav_html,
-        ));
+impl Layout {
+    fn new() -> Self {
+        Self {
+            sider: Vec::new(),
+            ops: Vec::new(),
+            y: PAGE_H - MARGIN,
+        }
     }
 
-    format!(
-        r#"<html><head><style>
-body {{ font-family: Helvetica; color: #0f172a; font-size: 9pt; }}
-.card {{ border: 1px solid #e2e8f0; margin-bottom: 14px; break-inside: avoid; }}
-.header {{ display: flex; justify-content: space-between; background-color: #1e293b; color: #ffffff; padding: 6px 14px; font-weight: bold; font-size: 11pt; border-bottom: 3px solid #6366f1; }}
-.grid {{ display: flex; }}
-.col {{ flex: 1; padding: 10px 14px; border-right: 1px solid #e2e8f0; border-left: 4px solid #faa61a; }}
-.col-akt {{ flex: 2; border-left: 4px solid #3ba55c; }}
-.col-krav {{ flex: 1.5; border-left: 4px solid #e67e22; border-right: none; }}
-.h {{ font-weight: bold; text-transform: uppercase; font-size: 8pt; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; }}
-.col-tema .h {{ color: #b8860b; }}
-.col-akt .h {{ color: #3ba55c; }}
-.col-krav .h {{ color: #e67e22; }}
-.txt {{ font-size: 9pt; line-height: 1.5; }}
-.txt p {{ margin: 0 0 6px 0; }}
-.txt ul, .txt ol {{ margin: 0 0 6px 0; padding-left: 16px; }}
-.txt img {{ max-width: 100%; }}
-</style></head><body>{cards}</body></html>"#,
-        cards = cards
-    )
+    fn ny_side(&mut self) {
+        if !self.ops.is_empty() {
+            self.sider.push(std::mem::take(&mut self.ops));
+        }
+        self.y = PAGE_H - MARGIN;
+    }
+
+    fn avslutt_side(&mut self) {
+        if !self.ops.is_empty() {
+            self.sider.push(std::mem::take(&mut self.ops));
+        }
+        if self.sider.is_empty() {
+            self.sider.push(Vec::new());
+        }
+    }
+
+    fn tegn_fag(
+        &mut self,
+        f: &PdfFag,
+        bilde_data: &BTreeMap<String, Bilde>,
+        bilde_ids: &BTreeMap<String, XObjectId>,
+    ) {
+        let content_w = PAGE_W - 2.0 * MARGIN;
+        let col_w = [
+            (content_w - 2.0 * COL_GAP) * (1.0 / 4.5),
+            (content_w - 2.0 * COL_GAP) * (2.0 / 4.5),
+            (content_w - 2.0 * COL_GAP) * (1.5 / 4.5),
+        ];
+
+        let kolonner = [
+            (&f.tema_label, &f.tema, [0xb8, 0x86, 0x0b]),
+            (&f.aktivitet_label, &f.aktivitet, [0x3b, 0xa5, 0x5c]),
+            (&f.arbeidskrav_label, &f.arbeidskrav, [0xe6, 0x7e, 0x22]),
+        ];
+
+        let has_header = matches!(&f.header_tekst, Some(h) if !h.is_empty());
+        let header_h = if has_header { HEADER_H } else { 0.0 };
+
+        let mut kolonne_h = [0.0f32; 3];
+        for (i, (_, segs, _)) in kolonner.iter().enumerate() {
+            kolonne_h[i] = segment_hoyde(segs, col_w[i], bilde_data) + LABEL_SIZE + 8.0;
+        }
+        let content_h = kolonne_h.into_iter().fold(0.0f32, f32::max);
+        let card_h = header_h + content_h + 2.0 * CARD_PAD;
+
+        if self.y - card_h < MARGIN {
+            self.ny_side();
+        }
+
+        let card_top = self.y;
+        let card_bottom = card_top - card_h;
+
+        // Kortramme
+        self.ops.push(Op::SetOutlineColor {
+            col: rgb(0xe2, 0xe8, 0xf0),
+        });
+        self.ops.push(Op::SetOutlineThickness { pt: Pt(0.75) });
+        self.ops.push(Op::DrawRectangle {
+            rectangle: rect(
+                MARGIN,
+                card_bottom,
+                content_w,
+                card_h,
+                PaintMode::Stroke,
+            ),
+        });
+
+        let mut y_cursor = card_top;
+
+        if has_header {
+            self.ops.push(Op::SetFillColor {
+                col: rgb(0x1e, 0x29, 0x3b),
+            });
+            self.ops.push(Op::DrawRectangle {
+                rectangle: rect(MARGIN, card_top - header_h, content_w, header_h, PaintMode::Fill),
+            });
+            self.tekst(
+                f.header_tekst.as_deref().unwrap_or(""),
+                MARGIN + CARD_PAD,
+                card_top - header_h / 2.0 - 4.0,
+                BuiltinFont::HelveticaBold,
+                11.0,
+                [0xff, 0xff, 0xff],
+            );
+            let uke_w = tekstbredde(&f.uke_label, 11.0);
+            self.tekst(
+                &f.uke_label,
+                MARGIN + content_w - CARD_PAD - uke_w,
+                card_top - header_h / 2.0 - 4.0,
+                BuiltinFont::HelveticaBold,
+                11.0,
+                [0xff, 0xff, 0xff],
+            );
+            y_cursor -= header_h;
+        }
+
+        y_cursor -= CARD_PAD;
+
+        let mut x_cursor = MARGIN;
+        for (i, (label, segs, farge)) in kolonner.iter().enumerate() {
+            let cw = col_w[i];
+
+            // Farget venstrekant
+            self.ops.push(Op::SetFillColor {
+                col: rgb(farge[0], farge[1], farge[2]),
+            });
+            self.ops.push(Op::DrawRectangle {
+                rectangle: rect(x_cursor, card_bottom + CARD_PAD, 3.0, content_h, PaintMode::Fill),
+            });
+
+            let text_x = x_cursor + CARD_PAD;
+            let text_w = cw - CARD_PAD - 4.0;
+            let mut cy = y_cursor;
+
+            self.tekst(
+                &label.to_uppercase(),
+                text_x,
+                cy,
+                BuiltinFont::HelveticaBold,
+                LABEL_SIZE,
+                [farge[0], farge[1], farge[2]],
+            );
+            cy -= LABEL_SIZE + 8.0;
+
+            for seg in segs.iter() {
+                match seg {
+                    PdfSegment::Text { text } => {
+                        for linje in wrap_all(text, text_w) {
+                            self.tekst(
+                                &linje,
+                                text_x,
+                                cy,
+                                BuiltinFont::Helvetica,
+                                BODY_SIZE,
+                                [0x0f, 0x17, 0x2a],
+                            );
+                            cy -= LINE_H;
+                        }
+                    }
+                    PdfSegment::Image { key } => {
+                        if let (Some(bilde), Some(id)) =
+                            (bilde_data.get(key), bilde_ids.get(key))
+                        {
+                            let img_h = bilde_visning_hoyde(bilde, text_w);
+                            let dpi = if text_w > 0.0 {
+                                bilde.raw.width as f32 * 72.0 / text_w
+                            } else {
+                                300.0
+                            };
+                            self.ops.push(Op::UseXobject {
+                                id: id.clone(),
+                                transform: XObjectTransform {
+                                    translate_x: Some(Pt(text_x)),
+                                    translate_y: Some(Pt(cy - img_h)),
+                                    dpi: Some(dpi),
+                                    ..Default::default()
+                                },
+                            });
+                            cy -= img_h + 6.0;
+                        }
+                    }
+                }
+            }
+
+            x_cursor += cw + COL_GAP;
+        }
+
+        self.y = card_bottom - CARD_GAP;
+    }
+
+    fn tekst(&mut self, txt: &str, x: f32, y: f32, font: BuiltinFont, size: f32, farge: [u8; 3]) {
+        if txt.is_empty() {
+            return;
+        }
+        self.ops.push(Op::StartTextSection);
+        self.ops.push(Op::SetTextCursor {
+            pos: Point::new(Pt(x).into(), Pt(y).into()),
+        });
+        self.ops.push(Op::SetFont {
+            font: PdfFontHandle::Builtin(font),
+            size: Pt(size),
+        });
+        self.ops.push(Op::SetFillColor {
+            col: rgb(farge[0], farge[1], farge[2]),
+        });
+        self.ops.push(Op::ShowText {
+            items: vec![TextItem::Text(txt.to_string())],
+        });
+        self.ops.push(Op::EndTextSection);
+    }
+}
+
+fn rgb(r: u8, g: u8, b: u8) -> Color {
+    Color::Rgb(Rgb {
+        r: r as f32 / 255.0,
+        g: g as f32 / 255.0,
+        b: b as f32 / 255.0,
+        icc_profile: None,
+    })
+}
+
+fn rect(x: f32, y: f32, w: f32, h: f32, mode: PaintMode) -> Rect {
+    Rect {
+        x: Pt(x),
+        y: Pt(y),
+        width: Pt(w),
+        height: Pt(h),
+        mode: Some(mode),
+        winding_order: None,
+    }
+}
+
+fn tekstbredde(s: &str, size: f32) -> f32 {
+    s.chars().count() as f32 * size * AVG_CHAR_W_RATIO
+}
+
+fn maks_tegn_per_linje(bredde_pt: f32) -> usize {
+    let n = (bredde_pt / (BODY_SIZE * AVG_CHAR_W_RATIO)).floor() as isize;
+    n.max(4) as usize
+}
+
+fn wrap_line(text: &str, maks_tegn: usize) -> Vec<String> {
+    let mut linjer = Vec::new();
+    let mut current = String::new();
+    for ord in text.split_whitespace() {
+        let kandidat = if current.is_empty() {
+            ord.to_string()
+        } else {
+            format!("{} {}", current, ord)
+        };
+        if kandidat.chars().count() > maks_tegn && !current.is_empty() {
+            linjer.push(current);
+            current = ord.to_string();
+        } else {
+            current = kandidat;
+        }
+    }
+    if !current.is_empty() {
+        linjer.push(current);
+    }
+    if linjer.is_empty() {
+        linjer.push(String::new());
+    }
+    linjer
+}
+
+fn wrap_all(text: &str, bredde_pt: f32) -> Vec<String> {
+    let maks = maks_tegn_per_linje(bredde_pt);
+    text.split('\n')
+        .flat_map(|para| wrap_line(para, maks))
+        .collect()
+}
+
+fn segment_hoyde(segs: &[PdfSegment], bredde_pt: f32, bilde_data: &BTreeMap<String, Bilde>) -> f32 {
+    let mut h = 0.0;
+    for seg in segs {
+        match seg {
+            PdfSegment::Text { text } => {
+                h += wrap_all(text, bredde_pt).len() as f32 * LINE_H;
+            }
+            PdfSegment::Image { key } => {
+                if let Some(b) = bilde_data.get(key) {
+                    h += bilde_visning_hoyde(b, bredde_pt) + 6.0;
+                }
+            }
+        }
+    }
+    h
+}
+
+fn bilde_visning_hoyde(b: &Bilde, bredde_pt: f32) -> f32 {
+    if b.raw.width == 0 {
+        return 0.0;
+    }
+    bredde_pt * (b.raw.height as f32 / b.raw.width as f32)
 }
 
 #[tauri::command]

@@ -1406,22 +1406,52 @@ document.getElementById('pdf-export-status-actions')?.addEventListener('click', 
 });
 
 let pdfBildeTeller = 0;
-function forberedHtmlForPdf(html, bilderUt) {
-    if (!html || !html.trim()) return '<p>-</p>';
+function htmlTilSegmenter(html, bilderUt) {
+    if (!html || !html.trim()) return [{ type: 'text', text: '-' }];
+
     const container = document.createElement('div');
     container.innerHTML = html;
-    container.querySelectorAll('img').forEach(img => {
-        const src = img.getAttribute('src') || '';
-        const match = src.match(/^data:image\/[a-zA-Z0-9.+-]+;base64,(.+)$/);
-        if (match) {
-            const key = `img_${pdfBildeTeller++}`;
-            bilderUt.push({ key, dataB64: match[1] });
-            img.setAttribute('src', key);
-        } else {
-            img.remove(); // ekstern/ukjent bildekilde - kan ikke bygges inn i PDF-en
+
+    const segmenter = [];
+    let gjeldendeTekst = '';
+
+    function tomTekst() {
+        const t = gjeldendeTekst.replace(/\n{3,}/g, '\n\n').trim();
+        if (t) segmenter.push({ type: 'text', text: t });
+        gjeldendeTekst = '';
+    }
+
+    function gaGjennom(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            gjeldendeTekst += node.textContent;
+            return;
         }
-    });
-    return container.innerHTML || '<p>-</p>';
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        const tag = node.tagName.toLowerCase();
+        if (tag === 'img') {
+            const src = node.getAttribute('src') || '';
+            const match = src.match(/^data:image\/[a-zA-Z0-9.+-]+;base64,(.+)$/);
+            if (match) {
+                tomTekst();
+                const key = `img_${pdfBildeTeller++}`;
+                bilderUt.push({ key, dataB64: match[1] });
+                segmenter.push({ type: 'image', key });
+            }
+            return; // ekstern/ukjent bildekilde ellers - kan ikke bygges inn i PDF-en
+        }
+
+        if (tag === 'li') gjeldendeTekst += '- ';
+        node.childNodes.forEach(gaGjennom);
+        if (tag === 'p' || tag === 'div' || tag === 'li' || tag === 'br') {
+            gjeldendeTekst += '\n';
+        }
+    }
+
+    container.childNodes.forEach(gaGjennom);
+    tomTekst();
+
+    return segmenter.length ? segmenter : [{ type: 'text', text: '-' }];
 }
 
 document.getElementById('pdf-export-start-btn')?.addEventListener('click', async () => {
@@ -1455,9 +1485,9 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
                     temaLabel: cfg.previewHeaders.topic,
                     aktivitetLabel: cfg.previewHeaders.activities,
                     arbeidskravLabel: cfg.previewHeaders.homework,
-                    tema: p.tema || '-',
-                    aktivitetHtml: forberedHtmlForPdf(p.aktivitet, bilder),
-                    arbeidskravHtml: forberedHtmlForPdf(p.arbeidskrav, bilder),
+                    tema: [{ type: 'text', text: p.tema || '-' }],
+                    aktivitet: htmlTilSegmenter(p.aktivitet, bilder),
+                    arbeidskrav: htmlTilSegmenter(p.arbeidskrav, bilder),
                 };
             });
 
