@@ -1,5 +1,6 @@
 mod commands;
 mod db;
+mod pdf_export;
 
 use tauri::{AppHandle, Manager, Window};
 use tauri_plugin_dialog::DialogExt;
@@ -90,6 +91,7 @@ pub fn run() {
             commands::sok_planer,
             commands::hent_tidslinje,
             commands::lagre_plan,
+            pdf_export::lagre_forhandsvisning_som_pdf,
         ])
         .run(tauri::generate_context!())
         .expect("Feil under kjøring av Tauri-applikasjon");
