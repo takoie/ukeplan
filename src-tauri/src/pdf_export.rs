@@ -5,6 +5,13 @@ use tauri::AppHandle;
 use tauri_plugin_dialog::DialogExt;
 
 #[derive(Deserialize)]
+pub struct PdfBilde {
+    key: String,
+    #[serde(rename = "dataB64")]
+    data_b64: String,
+}
+
+#[derive(Deserialize)]
 pub struct PdfFag {
     #[serde(rename = "headerTekst")]
     header_tekst: Option<String>,
@@ -17,8 +24,10 @@ pub struct PdfFag {
     #[serde(rename = "arbeidskravLabel")]
     arbeidskrav_label: String,
     tema: String,
-    aktivitet: String,
-    arbeidskrav: String,
+    #[serde(rename = "aktivitetHtml")]
+    aktivitet_html: String,
+    #[serde(rename = "arbeidskravHtml")]
+    arbeidskrav_html: String,
 }
 
 #[tauri::command]
@@ -26,6 +35,7 @@ pub fn lagre_forhandsvisning_som_pdf(
     app: AppHandle,
     uke: i32,
     fag_liste: Vec<PdfFag>,
+    bilder: Vec<PdfBilde>,
 ) -> Result<Option<String>, String> {
     if fag_liste.is_empty() {
         return Err("Ingen fag valgt".to_string());
@@ -50,9 +60,17 @@ pub fn lagre_forhandsvisning_som_pdf(
 
     let html = bygg_html(&fag_liste);
 
-    let images: BTreeMap<String, printpdf::Base64OrRaw> = BTreeMap::new();
+    let mut images: BTreeMap<String, printpdf::Base64OrRaw> = BTreeMap::new();
+    for b in &bilder {
+        images.insert(b.key.clone(), printpdf::Base64OrRaw::B64(b.data_b64.clone()));
+    }
     let fonts: BTreeMap<String, printpdf::Base64OrRaw> = BTreeMap::new();
     let options = printpdf::GeneratePdfOptions {
+        // Referer standard-14-fonten direkte i stedet for å bygge og bygge inn en
+        // subsettet font - unngår en glyph-indeks-bug i printpdf 0.12s (fortsatt
+        // umoden) HTML-motor der subsetting av bl.a. mellomrom kunne vise seg som
+        // feil tegn ("!") i PDF-leseren.
+        font_embedding: Some(false),
         page_width: Some(210.0),
         page_height: Some(297.0),
         margin_top: Some(12.0),
@@ -81,10 +99,6 @@ fn html_escape(s: &str) -> String {
         .replace('"', "&quot;")
 }
 
-fn text_to_html(s: &str) -> String {
-    html_escape(s).replace('\n', "<br/>")
-}
-
 fn bygg_html(fag_liste: &[PdfFag]) -> String {
     let mut cards = String::new();
 
@@ -98,6 +112,9 @@ fn bygg_html(fag_liste: &[PdfFag]) -> String {
             _ => String::new(),
         };
 
+        // aktivitet/arbeidskrav kommer allerede som gyldig HTML fra tekstredigereren
+        // (avsnitt, fet skrift, lister, bilder) og settes inn direkte - kun tema
+        // (ren tekst fra et enkelt inputfelt) trenger escaping.
         cards.push_str(&format!(
             r#"<div class="card">{header}<div class="grid">
 <div class="col col-tema"><div class="h">{tema_label}</div><div class="txt">{tema}</div></div>
@@ -106,11 +123,11 @@ fn bygg_html(fag_liste: &[PdfFag]) -> String {
 </div></div>"#,
             header = header,
             tema_label = html_escape(&f.tema_label),
-            tema = text_to_html(&f.tema),
+            tema = html_escape(&f.tema),
             akt_label = html_escape(&f.aktivitet_label),
-            akt = text_to_html(&f.aktivitet),
+            akt = f.aktivitet_html,
             krav_label = html_escape(&f.arbeidskrav_label),
-            krav = text_to_html(&f.arbeidskrav),
+            krav = f.arbeidskrav_html,
         ));
     }
 
@@ -128,6 +145,9 @@ body {{ font-family: Helvetica; color: #0f172a; font-size: 9pt; }}
 .col-akt .h {{ color: #3ba55c; }}
 .col-krav .h {{ color: #e67e22; }}
 .txt {{ font-size: 9pt; line-height: 1.5; }}
+.txt p {{ margin: 0 0 6px 0; }}
+.txt ul, .txt ol {{ margin: 0 0 6px 0; padding-left: 16px; }}
+.txt img {{ max-width: 100%; }}
 </style></head><body>{cards}</body></html>"#,
         cards = cards
     )

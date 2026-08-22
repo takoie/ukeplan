@@ -1405,14 +1405,23 @@ document.getElementById('pdf-export-status-actions')?.addEventListener('click', 
     }
 });
 
-function stripHtmlToText(html) {
-    if (!html) return '';
+let pdfBildeTeller = 0;
+function forberedHtmlForPdf(html, bilderUt) {
+    if (!html || !html.trim()) return '<p>-</p>';
     const container = document.createElement('div');
     container.innerHTML = html;
-    container.querySelectorAll('p, li, br, div').forEach(el => {
-        el.insertAdjacentText('afterend', '\n');
+    container.querySelectorAll('img').forEach(img => {
+        const src = img.getAttribute('src') || '';
+        const match = src.match(/^data:image\/[a-zA-Z0-9.+-]+;base64,(.+)$/);
+        if (match) {
+            const key = `img_${pdfBildeTeller++}`;
+            bilderUt.push({ key, dataB64: match[1] });
+            img.setAttribute('src', key);
+        } else {
+            img.remove(); // ekstern/ukjent bildekilde - kan ikke bygges inn i PDF-en
+        }
     });
-    return container.textContent.replace(/\n{3,}/g, '\n\n').trim();
+    return container.innerHTML || '<p>-</p>';
 }
 
 document.getElementById('pdf-export-start-btn')?.addEventListener('click', async () => {
@@ -1433,6 +1442,7 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
         const plans = await Promise.all(
             fagNavn.map(fag => invokeCommand('hent_plan', { uke: Number(uke), ar: Number(aar), fag }).catch(() => null))
         );
+        const bilder = [];
         const fagListe = plans
             .filter(p => p && (p.tema || p.aktivitet || p.arbeidskrav))
             .map(p => {
@@ -1446,8 +1456,8 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
                     aktivitetLabel: cfg.previewHeaders.activities,
                     arbeidskravLabel: cfg.previewHeaders.homework,
                     tema: p.tema || '-',
-                    aktivitet: stripHtmlToText(p.aktivitet) || '-',
-                    arbeidskrav: stripHtmlToText(p.arbeidskrav) || '-',
+                    aktivitetHtml: forberedHtmlForPdf(p.aktivitet, bilder),
+                    arbeidskravHtml: forberedHtmlForPdf(p.arbeidskrav, bilder),
                 };
             });
 
@@ -1460,7 +1470,7 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
             return;
         }
 
-        const result = await invokeCommand('lagre_forhandsvisning_som_pdf', { uke: Number(uke), fagListe });
+        const result = await invokeCommand('lagre_forhandsvisning_som_pdf', { uke: Number(uke), fagListe, bilder });
 
         if (result) {
             pdfExportLastPath = result;
