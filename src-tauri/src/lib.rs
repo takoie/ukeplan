@@ -93,6 +93,7 @@ pub fn run() {
             commands::lagre_plan,
             pdf_export::lagre_forhandsvisning_som_pdf,
             pdf_export::vis_pdf_i_utforsker,
+            pdf_export::apne_pdf_fil,
         ])
         .run(tauri::generate_context!())
         .expect("Feil under kjøring av Tauri-applikasjon");

@@ -1364,7 +1364,7 @@ function openPdfExportModal() {
 
     document.getElementById('pdf-export-view-select').style.display = '';
     document.getElementById('pdf-export-view-status').style.display = 'none';
-    modal.style.display = 'flex';
+    modal.style.display = 'block';
 }
 
 function closePdfExportModal() {
@@ -1399,7 +1399,7 @@ document.getElementById('pdf-export-status-actions')?.addEventListener('click', 
     if (btn.dataset.action === 'close') {
         closePdfExportModal();
     } else if (btn.dataset.action === 'open-file' && pdfExportLastPath) {
-        try { await window.__TAURI__.shell.open(pdfExportLastPath); } catch (err) { /* ignorer */ }
+        try { await invokeCommand('apne_pdf_fil', { sti: pdfExportLastPath }); } catch (err) { /* ignorer */ }
     } else if (btn.dataset.action === 'open-folder' && pdfExportLastPath) {
         invokeCommand('vis_pdf_i_utforsker', { sti: pdfExportLastPath });
     }

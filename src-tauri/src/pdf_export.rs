@@ -116,26 +116,61 @@ fn bygg_html(fag_liste: &[PdfFag]) -> String {
 
     format!(
         r#"<html><head><style>
-body {{ font-family: Helvetica; color: #000000; font-size: 9pt; }}
-.card {{ border: 1px solid #cccccc; margin-bottom: 10px; break-inside: avoid; }}
-.header {{ display: flex; justify-content: space-between; background-color: #1e293b; color: #ffffff; padding: 4px 10px; font-weight: bold; font-size: 11pt; }}
+body {{ font-family: Helvetica; color: #0f172a; font-size: 9pt; }}
+.card {{ border: 1px solid #e2e8f0; margin-bottom: 14px; break-inside: avoid; }}
+.header {{ display: flex; justify-content: space-between; background-color: #1e293b; color: #ffffff; padding: 6px 14px; font-weight: bold; font-size: 11pt; border-bottom: 3px solid #6366f1; }}
 .grid {{ display: flex; }}
-.col {{ flex: 1; padding: 8px 10px; border-right: 1px solid #e2e8f0; }}
-.col-akt {{ flex: 2; }}
-.col-krav {{ flex: 1.5; }}
-.h {{ font-weight: bold; text-transform: uppercase; font-size: 8pt; margin-bottom: 6px; }}
-.txt {{ font-size: 9pt; }}
+.col {{ flex: 1; padding: 10px 14px; border-right: 1px solid #e2e8f0; border-left: 4px solid #faa61a; }}
+.col-akt {{ flex: 2; border-left: 4px solid #3ba55c; }}
+.col-krav {{ flex: 1.5; border-left: 4px solid #e67e22; border-right: none; }}
+.h {{ font-weight: bold; text-transform: uppercase; font-size: 8pt; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; }}
+.col-tema .h {{ color: #b8860b; }}
+.col-akt .h {{ color: #3ba55c; }}
+.col-krav .h {{ color: #e67e22; }}
+.txt {{ font-size: 9pt; line-height: 1.5; }}
 </style></head><body>{cards}</body></html>"#,
         cards = cards
     )
 }
 
 #[tauri::command]
-pub fn vis_pdf_i_utforsker(sti: String) -> Result<(), String> {
+pub fn apne_pdf_fil(sti: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("explorer")
-            .arg(format!("/select,{}", sti))
+            .arg(&sti)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&sti)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&sti)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn vis_pdf_i_utforsker(sti: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        // explorer.exe sin egen kommandolinje-parsing for /select, er kresen på
+        // mellomrom i stien - Rusts vanlige (og korrekte) automatiske sitering av
+        // hele argumentet ("/select,C:\... med mellomrom") forvirrer explorer,
+        // som da faller tilbake til en standardmappe. Bygg derfor `/select,"<sti>"`
+        // som ett rått argument, slik explorer selv forventer det.
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("explorer")
+            .raw_arg(format!("/select,\"{}\"", sti))
             .spawn()
             .map_err(|e| e.to_string())?;
     }
