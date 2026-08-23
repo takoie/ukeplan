@@ -102,19 +102,16 @@
         <div class="main-content">
 
             <div id="view-editor" class="view-section active">
-                <div
-                    style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; margin-top: 30px; flex-wrap: wrap;">
-                    <select id="fag-select" style="width: 200px; margin-bottom: 0;" class="glass-input"></select>
+                <div class="toolbar-row" style="margin-top: 30px;">
+                    <select id="fag-select" style="width: 170px; margin-bottom: 0;" class="glass-input"></select>
                     <button class="btn btn-primary" id="lagre-btn"><i class="fas fa-save"></i> Lagre</button>
                     <button class="btn btn-secondary" id="sist-uke-btn"><i class="fas fa-history"></i> Sist
                         uke?</button>
                     <button class="btn btn-secondary" id="nullstill-uke-btn"
                         title="Nullstill denne uken for valgt fag"><i class="fas fa-undo" style="color: #f87171;"></i>
-                        Nullstill uke</button>
-                    <div style="flex-grow: 1;"></div>
-                    <span id="status-msg"
-                        style="font-size: 12px; color: #43b581; font-weight: bold; margin-right: 15px; min-width: 80px; text-align: right;"></span>
-                    <div style="display: flex; gap: 5px;">
+                        Nullstill</button>
+                    <div style="flex: 1 1 auto;"></div>
+                    <div class="toolbar-group">
                         <button class="btn" id="share-btn" title="Kopier delingskode"><i class="fas fa-share-alt"></i>
                             Del</button>
                         <button class="btn" id="import-modal-btn" title="Importer delingskode"><i
@@ -159,47 +156,43 @@
 
             <div id="view-preview" class="view-section">
                 <h2 style="color: white; text-align: center; margin-top: 30px; margin-bottom: 20px;">Visning</h2>
-                <div
-                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
-                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                        <div style="display: flex; gap: 8px; align-items: center; height: 36px;">
-                            <label style="color: #cbd5e1; font-size: 12px;">Uke:</label>
-                            <input type="number" id="preview-uke-input"
-                                style="width: 70px; margin: 0; height: 36px; box-sizing: border-box;"
-                                class="glass-input" min="1" max="53" autocomplete="off">
-                        </div>
-                        <select id="preview-fag-select"
-                            style="width: 200px; margin: 0; height: 36px; box-sizing: border-box;"
-                            class="glass-input"></select>
-                        <button class="btn btn-primary" id="oppdater-preview-btn"
-                            style="height: 36px; box-sizing: border-box;"><i class="fas fa-sync"></i> Oppdater</button>
-
-                        <label class="switch-label" style="height: 36px; box-sizing: border-box;">
-                            <span class="switch">
-                                <input type="checkbox" id="toggle-all-fag">
-                                <span class="slider"></span>
-                            </span>
-                            Vis alle fag
-                        </label>
-
-                        <label class="switch-label" style="height: 36px; box-sizing: border-box;">
-                            <span class="switch">
-                                <input type="checkbox" id="toggle-hide-header">
-                                <span class="slider"></span>
-                            </span>
-                            Skjul header
-                        </label>
+                <div class="toolbar-row">
+                    <div class="toolbar-group" style="height: 36px;">
+                        <label style="color: #cbd5e1; font-size: 12px;">Uke:</label>
+                        <input type="number" id="preview-uke-input"
+                            style="width: 60px; margin: 0; height: 36px; box-sizing: border-box;"
+                            class="glass-input" min="1" max="53" autocomplete="off">
                     </div>
+                    <select id="preview-fag-select"
+                        style="width: 160px; margin: 0; height: 36px; box-sizing: border-box; flex-shrink: 0;"
+                        class="glass-input"></select>
+                    <button class="btn btn-primary" id="oppdater-preview-btn"><i class="fas fa-sync"></i> Oppdater</button>
 
-                    <button class="btn btn-success" id="kopier-bilde-btn"
-                        style="height: 36px; box-sizing: border-box;"><i class="fas fa-copy"></i> Kopier bilde</button>
-                    <button class="btn btn-success" id="lagre-pdf-btn"
-                        style="height: 36px; box-sizing: border-box;"><i class="fas fa-file-pdf"></i> Lagre som PDF</button>
+                    <label class="switch-label">
+                        <span class="switch">
+                            <input type="checkbox" id="toggle-all-fag">
+                            <span class="slider"></span>
+                        </span>
+                        Vis alle
+                    </label>
+
+                    <label class="switch-label">
+                        <span class="switch">
+                            <input type="checkbox" id="toggle-hide-header">
+                            <span class="slider"></span>
+                        </span>
+                        Skjul header
+                    </label>
+
+                    <div style="flex: 1 1 auto;"></div>
+                    <div class="toolbar-group">
+                        <button class="btn btn-success" id="kopier-bilde-btn"><i class="fas fa-copy"></i> Kopier bilde</button>
+                        <button class="btn btn-success" id="lagre-pdf-btn"><i class="fas fa-file-pdf"></i> Lagre PDF</button>
+                    </div>
                 </div>
                 <div id="preview-capture-area" style="width: 100%; background: transparent;">
                     <div id="preview-container"></div>
                 </div>
-                <p id="bilde-status" style="margin-top: 10px; color: #43b581; font-weight: bold;"></p>
             </div>
 
             <div id="view-fag" class="view-section">
@@ -558,6 +551,8 @@
             </div>
         </div>
     </div>
+
+    <div id="toast-container" class="toast-container"></div>
 
     <script src="vendor/quill.js"></script>
     <script src="renderer.js"></script>

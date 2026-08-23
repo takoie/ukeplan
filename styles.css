@@ -576,6 +576,7 @@ select:focus {
     margin-bottom: 30px;
     font-size: 13px;
     border-radius: 0;
+    border-bottom: 1px solid #6366f1;
     overflow: hidden;
 }
 
@@ -588,7 +589,6 @@ select:focus {
     align-items: center;
     font-weight: 700;
     font-size: 1.05em;
-    border-bottom: 4px solid #6366f1;
 }
 
 .preview-grid {
@@ -596,6 +596,7 @@ select:focus {
     grid-template-columns: 1fr 2fr 1.5fr !important;
     background-color: #ffffff;
     width: 100%;
+    border-top: 1px solid #6366f1;
 }
 
 .preview-section {
@@ -1300,6 +1301,8 @@ select:focus {
     gap: 10px;
     color: #cbd5e1;
     font-size: 13px;
+    white-space: nowrap;
+    flex-shrink: 0;
     cursor: pointer;
     user-select: none;
     background: rgba(255, 255, 255, 0.05);
@@ -1468,6 +1471,63 @@ select:focus {
     padding: 5px 12px;
     font-size: 12px;
     border-radius: 6px;
+}
+
+/* --- TOOLBAR (uniform toppmeny i visnings-moduler) --- */
+.toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+    margin-bottom: 20px;
+}
+
+.toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* --- TOAST-VARSLING --- */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(30, 41, 59, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 4px solid #43b581;
+    color: #f8fafc;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 18px;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    transform: translateX(20px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast.toast-visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast.toast-error {
+    border-left-color: #ef4444;
 }
 
 /* Week navigation buttons animation */

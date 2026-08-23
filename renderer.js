@@ -8,6 +8,20 @@ async function invokeCommand(cmd, args) {
     return null;
 }
 
+function showToast(message, isError = false) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast' + (isError ? ' toast-error' : '');
+    toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}" style="color: ${isError ? '#ef4444' : '#43b581'};"></i><span>${message}</span>`;
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('toast-visible'));
+    setTimeout(() => {
+        toast.classList.remove('toast-visible');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
 let autoSaveTimer = null;
 let isLoadingData = false;
 let currentSchoolYear = "";
@@ -733,12 +747,9 @@ async function utførLagring(erAutolagring = false) {
     const targetAar = activeEditorAar || document.getElementById('aar-input')?.value;
     if (!targetFag) return;
 
-    const status = document.getElementById('status-msg');
     const btn = document.getElementById('lagre-btn');
     if (!erAutolagring) {
         if (btn) { btn.textContent = "Lagrer..."; btn.disabled = true; }
-    } else {
-        if (status) status.textContent = "Lagrer...";
     }
 
     try {
@@ -752,23 +763,15 @@ async function utførLagring(erAutolagring = false) {
         };
         await invokeCommand('lagre_plan', payload);
         isEditorDirty = false;
-        const msg = erAutolagring ? "Lagret (Auto)" : "Lagret! ✅";
-        if (status) {
-            status.textContent = msg;
-            status.style.color = "#43b581";
+        if (!erAutolagring) {
+            showToast('Ukeplan lagret');
         }
         if (autoSaveTimer) {
             clearTimeout(autoSaveTimer);
             autoSaveTimer = null;
         }
-        setTimeout(() => {
-            if (status && status.textContent === msg) status.textContent = "";
-        }, 2000);
     } catch (e) {
-        if (status) {
-            status.textContent = "Feil ved lagring";
-            status.style.color = "#e74c3c";
-        }
+        showToast('Feil ved lagring', true);
     } finally {
         if (!erAutolagring && btn) {
             btn.innerHTML = '<i class="fas fa-save"></i> Lagre';
@@ -902,14 +905,12 @@ document.getElementById('fag-select').addEventListener('change', async () => {
 });
 
 document.getElementById('share-btn').addEventListener('click', () => {
-    const status = document.getElementById('status-msg');
     try {
         const payload = { tema: document.getElementById('tema-input').value, aktivitet: quillAkt.root.innerHTML, arbeidskrav: quillKrav.root.innerHTML };
         const code = "UPLAN::" + utf8ToBase64(JSON.stringify(payload));
-        navigator.clipboard.writeText(code).then(() => { status.textContent = "Kode kopiert! 📋"; setTimeout(() => status.textContent = "", 3000); }).catch(err => { status.textContent = "Kunne ikke kopiere"; status.style.color = "#e74c3c"; });
+        navigator.clipboard.writeText(code).then(() => { showToast('Delingskode kopiert'); }).catch(() => { showToast('Kunne ikke kopiere', true); });
     } catch (e) {
-        status.textContent = "Feil ved deling";
-        status.style.color = "#e74c3c";
+        showToast('Feil ved deling', true);
     }
 });
 document.getElementById('import-modal-btn').addEventListener('click', () => { document.getElementById('import-textarea').value = ""; document.getElementById('modal-import').style.display = "block"; });
@@ -918,7 +919,7 @@ document.getElementById('confirm-import-btn').addEventListener('click', () => {
         const raw = document.getElementById('import-textarea').value.trim().replace("UPLAN::", ""); 
         const data = JSON.parse(base64ToUtf8(raw));
         isLoadingData = true; document.getElementById('tema-input').value = data.tema || ""; quillAkt.root.innerHTML = data.aktivitet || ""; quillKrav.root.innerHTML = data.arbeidskrav || ""; isLoadingData = false; utførLagring(true);
-        document.getElementById('modal-import').style.display = "none"; document.getElementById('status-msg').textContent = "Importert! ✅"; setTimeout(() => document.getElementById('status-msg').textContent = "", 3000);
+        document.getElementById('modal-import').style.display = "none"; showToast('Ukeplan importert');
     } catch (e) { document.getElementById('import-error-msg').textContent = "Ugyldig kode."; }
 });
 
@@ -1178,16 +1179,28 @@ async function loadPreviewDropdown() {
         document.getElementById('preview-uke-input').value = nextWeekFixed;
     }
 
+    const toggleAllFag = document.getElementById('toggle-all-fag');
+    const toggleHideHeader = document.getElementById('toggle-hide-header');
+    if (toggleAllFag) {
+        toggleAllFag.checked = localStorage.getItem('ukeplan_previewVisAlleFag') === 'true';
+        if (s) s.disabled = toggleAllFag.checked;
+    }
+    if (toggleHideHeader) {
+        toggleHideHeader.checked = localStorage.getItem('ukeplan_previewSkjulHeader') === 'true';
+    }
+
     await renderPreview('preview-container');
 }
 
 document.getElementById('toggle-all-fag')?.addEventListener('change', (e) => {
     const sel = document.getElementById('preview-fag-select');
     if (sel) sel.disabled = e.target.checked;
+    localStorage.setItem('ukeplan_previewVisAlleFag', e.target.checked);
     renderPreview('preview-container');
 });
 
-document.getElementById('toggle-hide-header')?.addEventListener('change', () => {
+document.getElementById('toggle-hide-header')?.addEventListener('change', (e) => {
+    localStorage.setItem('ukeplan_previewSkjulHeader', e.target.checked);
     renderPreview('preview-container');
 });
 
@@ -1254,7 +1267,7 @@ async function renderPreview(c, d = null) {
 
                     wrapper.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 2px;">
-                            <span style="font-weight: 700; color: #f8fafc; font-size: 14px;"><i class="fas fa-book" style="color: #6366f1; margin-right: 6px;"></i>${plan.fag} (Uke ${plan.uke})</span>
+                            <span style="font-weight: 700; color: #f8fafc; font-size: 14px;"><i class="fas fa-book" style="color: #6366f1; margin-right: 6px;"></i>${plan.fag}</span>
                             <button class="btn btn-small btn-success" onclick="kopierFagBilde('${cardId}', '${plan.fag}')" style="display: inline-flex; align-items: center; gap: 6px;">
                                 <i class="fas fa-copy"></i> Kopier ${plan.fag}
                             </button>
@@ -1297,41 +1310,23 @@ async function renderPreview(c, d = null) {
 }
 
 window.kopierFagBilde = function (cardId, fagnavn) {
-    const s = document.getElementById('bilde-status');
     const target = document.getElementById(cardId) || document.querySelector('#preview-container .preview-card');
     if (!target) return alert("Fant ikke kortet som skal kopieres.");
-
-    if (s) {
-        s.textContent = `Genererer bilde for ${fagnavn}...`;
-        s.style.color = "#43b581";
-    }
 
     html2canvas(target, { scale: 3, backgroundColor: null, logging: false, useCORS: true }).then(c => {
         c.toBlob(b => {
             try {
                 navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]).then(() => {
-                    if (s) {
-                        s.textContent = `Kopiert bilde for ${fagnavn}! ✅ (Klar til å limes inn i Teams / OneNote)`;
-                        setTimeout(() => { if (s && s.textContent.includes(fagnavn)) s.textContent = ""; }, 4000);
-                    }
-                }).catch(err => {
-                    if (s) {
-                        s.textContent = "Feil ved kopiering til utklippstavle: " + err.message;
-                        s.style.color = "#ef4444";
-                    }
+                    showToast(`Bilde for ${fagnavn} kopiert`);
+                }).catch(() => {
+                    showToast('Feil ved kopiering til utklippstavle', true);
                 });
             } catch (e) {
-                if (s) {
-                    s.textContent = "Nettleseren støtter ikke direkte bildekopiering.";
-                    s.style.color = "#ef4444";
-                }
+                showToast('Nettleseren støtter ikke direkte bildekopiering', true);
             }
         });
-    }).catch(err => {
-        if (s) {
-            s.textContent = "Feil ved bildegenerering: " + err.message;
-            s.style.color = "#ef4444";
-        }
+    }).catch(() => {
+        showToast('Feil ved bildegenerering', true);
     });
 };
 
@@ -1383,9 +1378,8 @@ function showPdfExportStatus({ icon, iconColor, text, actions }) {
 
 document.getElementById('lagre-pdf-btn')?.addEventListener('click', () => {
     const previewContainer = document.getElementById('preview-container');
-    const status = document.getElementById('bilde-status');
     if (!previewContainer || !previewContainer.innerHTML.trim()) {
-        if (status) { status.textContent = 'Ingen plan å lagre.'; status.style.color = '#e74c3c'; }
+        showToast('Ingen plan å lagre', true);
         return;
     }
     openPdfExportModal();
@@ -1406,27 +1400,49 @@ document.getElementById('pdf-export-status-actions')?.addEventListener('click', 
 });
 
 let pdfBildeTeller = 0;
-async function fagKortTilSideNokkel(plan, hideHeader, bilderUt) {
+async function capturePdfHtmlBilde(innerHtml, widthPx, bg, bilderUt) {
     const wrapper = document.createElement('div');
     wrapper.style.position = 'fixed';
     wrapper.style.left = '-99999px';
     wrapper.style.top = '0';
-    wrapper.style.width = '780px';
-    wrapper.innerHTML = buildCardHtml(plan, hideHeader);
+    wrapper.style.width = `${widthPx}px`;
+    wrapper.innerHTML = innerHtml;
     document.body.appendChild(wrapper);
     try {
         const canvas = await html2canvas(wrapper.firstElementChild, {
-            scale: 2, backgroundColor: '#ffffff', logging: false, useCORS: true,
+            scale: 4, backgroundColor: bg, logging: false, useCORS: true,
         });
         const dataUrl = canvas.toDataURL('image/png');
         const match = dataUrl.match(/^data:image\/png;base64,(.+)$/);
         if (!match) return null;
-        const key = `side_${pdfBildeTeller++}`;
+        const key = `bilde_${pdfBildeTeller++}`;
         bilderUt.push({ key, dataB64: match[1] });
         return key;
     } finally {
         document.body.removeChild(wrapper);
     }
+}
+
+async function fagKortTilSideNokkel(plan, hideHeader, bilderUt) {
+    const fagLabelHtml = hideHeader
+        ? `<div style="font-family:'Inter','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif; font-weight:700; font-size:15px; color:#0f172a; margin-bottom:6px;">${plan.fag}</div>`
+        : '';
+    return capturePdfHtmlBilde(
+        `<div>${fagLabelHtml}${buildCardHtml(plan, hideHeader)}</div>`,
+        780,
+        '#ffffff',
+        bilderUt,
+    );
+}
+
+async function tittelBildeNokkel(uke, bilderUt) {
+    const html = `<div style="font-family:'Inter','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif; font-weight:800; font-size:30px; color:#0f172a; text-align:center;">Uke ${uke}</div>`;
+    return capturePdfHtmlBilde(html, 780, '#ffffff', bilderUt);
+}
+
+async function footerBildeNokkel(bilderUt) {
+    const html = `<div class="logo-text" style="display:inline-block; font-size:11px;"><span style="color:#0f172a;">Ukeplan</span><span style="color:#facc15;">Lager</span></div>`;
+    return capturePdfHtmlBilde(html, 260, null, bilderUt);
 }
 
 document.getElementById('pdf-export-start-btn')?.addEventListener('click', async () => {
@@ -1474,7 +1490,10 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
             return;
         }
 
-        const result = await invokeCommand('lagre_forhandsvisning_som_pdf', { uke: Number(uke), sider, bilder });
+        const tittelKey = await tittelBildeNokkel(uke, bilder);
+        const footerKey = await footerBildeNokkel(bilder);
+
+        const result = await invokeCommand('lagre_forhandsvisning_som_pdf', { uke: Number(uke), sider, bilder, tittelKey, footerKey });
 
         if (result) {
             pdfExportLastPath = result;
@@ -1500,7 +1519,10 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
     }
 });
 
-document.getElementById('oppdater-preview-btn')?.addEventListener('click', () => renderPreview('preview-container'));
+document.getElementById('oppdater-preview-btn')?.addEventListener('click', async () => {
+    await renderPreview('preview-container');
+    showToast('Visning oppdatert');
+});
 document.getElementById('kopier-bilde-btn')?.addEventListener('click', () => {
     const singleCard = document.getElementById('single-preview-card') || document.querySelector('#preview-container .preview-card');
     if (!singleCard) return alert("Ingen plan å kopiere.");
