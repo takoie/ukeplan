@@ -1,3 +1,7 @@
+// Fast bredde på ukeplankortet i PDF-eksporten. Må holdes i synk med
+// --ukeplan-kortbredde i styles.css slik at skjerm-snapshot og PDF blir like.
+const UKEPLAN_KORTBREDDE = 1137;
+
 async function invokeCommand(cmd, args) {
     if (window.__TAURI__ && window.__TAURI__.core) {
         return await window.__TAURI__.core.invoke(cmd, args);
@@ -518,6 +522,7 @@ window.switchView = async function (viewName) {
     if (viewName === 'settings-skoleaar') { document.getElementById('menu-settings-skoleaar').classList.add('active'); document.getElementById('menu-settings-toggle').classList.add('active'); }
     if (viewName === 'settings-db') { document.getElementById('menu-settings-db').classList.add('active'); document.getElementById('menu-settings-toggle').classList.add('active'); }
     if (viewName === 'about') { document.getElementById('menu-about').classList.add('active'); document.getElementById('menu-settings-toggle').classList.add('active'); document.getElementById('settings-submenu').classList.add('open'); }
+    if (viewName === 'changelog') { document.getElementById('menu-changelog').classList.add('active'); document.getElementById('menu-settings-toggle').classList.add('active'); document.getElementById('settings-submenu').classList.add('open'); renderChangelog(); }
 
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
     document.getElementById(`view-${viewName}`).classList.add('active');
@@ -533,6 +538,8 @@ closeBtns.forEach(btn => btn.onclick = () => {
     if (mNull) mNull.style.display = "none";
     const mPdf = document.getElementById("modal-pdf-export");
     if (mPdf) mPdf.style.display = "none";
+    const mWhatsNew = document.getElementById("modal-whats-new");
+    if (mWhatsNew) mWhatsNew.style.display = "none";
 });
 window.onclick = (e) => { if (e.target.classList.contains('modal')) e.target.style.display = "none"; };
 
@@ -1429,7 +1436,7 @@ async function fagKortTilSideNokkel(plan, hideHeader, bilderUt) {
         : '';
     return capturePdfHtmlBilde(
         `<div>${fagLabelHtml}${buildCardHtml(plan, hideHeader)}</div>`,
-        780,
+        UKEPLAN_KORTBREDDE,
         '#ffffff',
         bilderUt,
     );
@@ -1437,7 +1444,7 @@ async function fagKortTilSideNokkel(plan, hideHeader, bilderUt) {
 
 async function tittelBildeNokkel(uke, bilderUt) {
     const html = `<div style="font-family:'Inter','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif; font-weight:800; font-size:30px; color:#0f172a; text-align:center;">Uke ${uke}</div>`;
-    return capturePdfHtmlBilde(html, 780, '#ffffff', bilderUt);
+    return capturePdfHtmlBilde(html, UKEPLAN_KORTBREDDE, '#ffffff', bilderUt);
 }
 
 async function footerBildeNokkel(bilderUt) {
@@ -1609,6 +1616,157 @@ function initDate() {
     else document.getElementById('uke-label').textContent = "";
 }
 
+/* ============================================================
+   ENDRINGSLOGG + "HVA ER NYTT"-POPUP
+   Leser changelog.json (kopieres til dist/ av copy_icons.js).
+   ============================================================ */
+
+const CHANGELOG_TYPES = {
+    'Nyhet': 'nyhet',
+    'Feilretting': 'feilretting',
+    'Forbedring': 'forbedring',
+    'Stabilitet': 'stabilitet',
+};
+const LAST_SEEN_VERSION_KEY = 'ukeplan_last_seen_version';
+
+let changelogCache = null;
+async function loadChangelog() {
+    if (changelogCache) return changelogCache;
+    const res = await fetch('changelog.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    changelogCache = Array.isArray(data.versions) ? data.versions : [];
+    return changelogCache;
+}
+
+function changelogBadge(type) {
+    const badge = document.createElement('span');
+    badge.className = 'cl-badge cl-badge--' + (CHANGELOG_TYPES[type] || 'forbedring');
+    badge.textContent = type;
+    return badge;
+}
+
+// Bygger én rad per endring. "Nyhet" sorteres alltid øverst når sortNyhetFirst er satt.
+function renderChangelogEntries(container, entries, sortNyhetFirst) {
+    const list = sortNyhetFirst
+        ? [...entries].sort((a, b) => (b.type === 'Nyhet' ? 1 : 0) - (a.type === 'Nyhet' ? 1 : 0))
+        : entries;
+    list.forEach(entry => {
+        const row = document.createElement('div');
+        row.className = 'cl-entry';
+        row.appendChild(changelogBadge(entry.type));
+        const text = document.createElement('div');
+        text.className = 'cl-entry-text';
+        const strong = document.createElement('strong');
+        strong.textContent = entry.title;
+        text.appendChild(strong);
+        if (entry.description) {
+            text.appendChild(document.createTextNode(': ' + entry.description));
+        }
+        row.appendChild(text);
+        container.appendChild(row);
+    });
+}
+
+async function renderChangelog() {
+    const el = document.getElementById('changelog-list');
+    if (!el) return;
+    el.innerHTML = '<p style="padding:16px; color:#94a3b8;">Laster endringslogg...</p>';
+    let versions;
+    try {
+        versions = await loadChangelog();
+    } catch (e) {
+        console.error('Kunne ikke laste changelog.json:', e);
+        el.innerHTML = '<p style="padding:16px; color:#ef4444;">Kunne ikke laste endringsloggen.</p>';
+        return;
+    }
+    if (!versions.length) {
+        el.innerHTML = '<p style="padding:16px; color:#94a3b8;">Ingen endringer registrert enda.</p>';
+        return;
+    }
+    el.innerHTML = '';
+    versions.forEach((v, idx) => {
+        const card = document.createElement('div');
+        card.className = 'cl-card glass-panel';
+
+        const head = document.createElement('div');
+        head.className = 'cl-card-head';
+        const title = document.createElement('div');
+        title.className = 'cl-card-title';
+        title.textContent = `Versjon ${v.version}`;
+        if (idx === 0) {
+            const pill = document.createElement('span');
+            pill.className = 'cl-pill';
+            pill.textContent = 'Nyeste';
+            title.appendChild(pill);
+        }
+        const date = document.createElement('div');
+        date.className = 'cl-card-date';
+        date.textContent = v.date || '';
+        head.appendChild(title);
+        head.appendChild(date);
+        card.appendChild(head);
+
+        const body = document.createElement('div');
+        body.className = 'cl-card-body';
+        renderChangelogEntries(body, v.entries || [], false);
+        card.appendChild(body);
+
+        el.appendChild(card);
+    });
+}
+
+function showWhatsNew(versionBlock) {
+    const modal = document.getElementById('modal-whats-new');
+    const verLabel = document.getElementById('whats-new-version');
+    const list = document.getElementById('whats-new-list');
+    if (!modal || !list) return;
+    list.innerHTML = '';
+    if (verLabel) verLabel.textContent = `Nytt i versjon ${versionBlock.version}${versionBlock.date ? ' · ' + versionBlock.date : ''}`;
+    renderChangelogEntries(list, versionBlock.entries || [], true);
+    modal.style.display = 'block';
+}
+
+// Åpnes manuelt fra "Om..."-visningen. Viser alltid øverste (nyeste) blokk.
+async function openLatestWhatsNew() {
+    try {
+        const versions = await loadChangelog();
+        if (versions.length) showWhatsNew(versions[0]);
+    } catch (e) {
+        console.error('Kunne ikke laste changelog.json:', e);
+    }
+}
+
+// Kalles ved oppstart: viser popup kun når appen nettopp er oppdatert til en ny versjon.
+async function maybeShowWhatsNew(currentVersion) {
+    if (!currentVersion) return;
+    let lastSeen = null;
+    try { lastSeen = localStorage.getItem(LAST_SEEN_VERSION_KEY); } catch (e) { return; }
+
+    if (!lastSeen) {
+        // Fersk installasjon – ikke vis popup, bare husk gjeldende versjon.
+        try { localStorage.setItem(LAST_SEEN_VERSION_KEY, currentVersion); } catch (e) { }
+        return;
+    }
+    if (lastSeen === currentVersion) return;
+
+    try {
+        const versions = await loadChangelog();
+        const block = versions.find(v => v.version === currentVersion) || versions[0];
+        if (block) showWhatsNew(block);
+    } catch (e) {
+        console.error('Kunne ikke laste changelog.json:', e);
+    } finally {
+        try { localStorage.setItem(LAST_SEEN_VERSION_KEY, currentVersion); } catch (e) { }
+    }
+}
+
+document.getElementById('whats-new-ok-btn')?.addEventListener('click', () => {
+    const modal = document.getElementById('modal-whats-new');
+    if (modal) modal.style.display = 'none';
+});
+document.getElementById('show-whats-new-btn')?.addEventListener('click', () => openLatestWhatsNew());
+
 async function checkTauriUpdate(manual = false) {
     const notif = document.getElementById('notification');
     const notifMsg = document.getElementById('notification-message');
@@ -1741,6 +1899,7 @@ async function initApp() {
             const sidebarVer = document.getElementById('sidebar-version');
             if (badge) badge.textContent = `v${ver}`;
             if (sidebarVer) sidebarVer.textContent = `v${ver}`;
+            await maybeShowWhatsNew(ver);
         } catch (e) { }
     }
     try {

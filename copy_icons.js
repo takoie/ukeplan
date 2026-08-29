@@ -32,7 +32,7 @@ if (!fs.existsSync(distVendorDir)) {
     fs.mkdirSync(distVendorDir, { recursive: true });
 }
 
-['index.html', 'renderer.js', 'styles.css'].forEach(file => {
+['index.html', 'renderer.js', 'styles.css', 'changelog.json'].forEach(file => {
     const src = path.join(__dirname, file);
     if (fs.existsSync(src)) {
         fs.copyFileSync(src, path.join(distDir, file));

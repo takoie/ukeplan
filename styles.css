@@ -1,4 +1,12 @@
 /* --- BASE --- */
+:root {
+    /* Én fast bredde for ukeplan-tabellen overalt: planlegger, visning og
+       PDF-eksport (capturePdfHtmlBilde / UKEPLAN_KORTBREDDE i renderer.js).
+       Låst verdi slik at skjerm, kopiert bilde og PDF blir identiske uansett
+       vindus-/fullskjermstørrelse. */
+    --ukeplan-kortbredde: 1137px;
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -7,9 +15,10 @@
 
 body {
     font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
-    background-color: #0f172a;
-    background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, rgba(244, 63, 94, 0.15) 0px, transparent 50%);
+    background-color: #0f1b2e;
+    background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.16) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.14) 0px, transparent 55%),
+        radial-gradient(at 60% 100%, rgba(59, 130, 246, 0.08) 0px, transparent 55%);
     color: #cbd5e1;
     height: 100vh;
     display: flex;
@@ -328,6 +337,10 @@ select.glass-input option:checked {
     grid-template-columns: 100px 140px 1fr 1fr;
     gap: 10px;
     align-items: start;
+    /* Lås maksbredden slik at Aktivitet/Arbeidskrav ikke strekker seg fritt i
+       fullskjerm. Samme bredde som visnings-/eksportkortet. Venstrejustert. */
+    width: 100%;
+    max-width: var(--ukeplan-kortbredde);
 }
 
 @media (max-width: 1000px) {
@@ -572,12 +585,22 @@ select:focus {
     padding: 0;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     width: 100%;
+    /* Fast maksbredde: snapshot/PDF blir uavhengig av vindusstørrelse. */
+    max-width: var(--ukeplan-kortbredde);
     font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
     margin-bottom: 30px;
     font-size: 13px;
     border-radius: 0;
-    border-bottom: 1px solid #6366f1;
+    border-bottom: 1px solid #1e293b;
     overflow: hidden;
+}
+
+/* Lås visningsområdet slik at enkeltkort og «Vis alle»-lista holder samme
+   faste bredde og venstrejusteres uansett vindusstørrelse. */
+#preview-capture-area,
+#preview-container,
+.fag-card-block {
+    max-width: var(--ukeplan-kortbredde);
 }
 
 .preview-header {
@@ -596,7 +619,7 @@ select:focus {
     grid-template-columns: 1fr 2fr 1.5fr !important;
     background-color: #ffffff;
     width: 100%;
-    border-top: 1px solid #6366f1;
+    border-top: 1px solid #1e293b;
 }
 
 .preview-section {
@@ -606,7 +629,9 @@ select:focus {
 }
 
 .preview-section:last-child {
-    border-right: none;
+    /* Lukk tabellen på høyre side med en tynn kant i samme farge som headeren
+       (synlig i skjermvisning, utskrift og PDF – også når headeren er skjult). */
+    border-right: 1px solid #1e293b;
 }
 
 .preview-h {
@@ -626,6 +651,14 @@ select:focus {
     margin: 0;
     line-height: 1.5;
     white-space: pre-wrap;
+}
+
+/* Innsatte bilder skal skalere ned innenfor den faste kortbredden,
+   ikke sprenge kolonnen. Gjelder både visningskortet og Quill-editorene. */
+.preview-section img,
+.ql-editor img {
+    max-width: 100%;
+    height: auto;
 }
 
 /* --- BUTTONS --- */
@@ -1509,7 +1542,6 @@ select:focus {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-left: 4px solid #43b581;
     color: #f8fafc;
     font-size: 13px;
     font-weight: 600;
@@ -1527,7 +1559,7 @@ select:focus {
 }
 
 .toast.toast-error {
-    border-left-color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.4);
 }
 
 /* Week navigation buttons animation */
@@ -1548,4 +1580,218 @@ select:focus {
 
 .week-nav-btn:active {
     transform: scale(0.9);
+}
+
+/* ============================================================
+   DESIGN-HARMONISERING (inspirert av KlassePlass)
+   ============================================================ */
+
+/* Sidehode: stor tittel med ledende ikon + høyrejustert knapperad.
+   Brukes på tvers av hovedvisningene for et konsistent uttrykk. */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px 20px;
+    flex-wrap: wrap;
+    margin: 6px 0 26px;
+}
+
+.page-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    color: #f8fafc;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.page-title i {
+    color: #6366f1;
+    font-size: 17px;
+    flex-shrink: 0;
+}
+
+.page-subtitle {
+    margin: 6px 0 0;
+    color: #94a3b8;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 62ch;
+}
+
+.page-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Samlet flate for seksjonspaneler (erstatter ad-hoc inline-bakgrunner) */
+.surface-card {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 20px 22px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Verktøylinjene brytes pent på smale vinduer i stedet for å flyte ut */
+.toolbar-row {
+    flex-wrap: wrap;
+    row-gap: 10px;
+}
+
+/* Venstre aksentstripe på aktivt menyvalg */
+.menu-item.active {
+    position: relative;
+}
+
+.menu-item.active::before {
+    content: "";
+    position: absolute;
+    left: -4px;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 3px;
+    background: #6366f1;
+}
+
+/* Roligere outline-pill for sekundærknapper */
+.btn-secondary {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #cbd5e1;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.32);
+    color: #f8fafc;
+}
+
+/* ============================================================
+   ENDRINGSLOGG + "HVA ER NYTT"
+   ============================================================ */
+
+#changelog-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 820px;
+}
+
+.cl-card {
+    background: #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 20px 22px;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.cl-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(99, 102, 241, 0.4);
+}
+
+.cl-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.cl-card-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #f8fafc;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.cl-card-date {
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.cl-pill {
+    background: rgba(34, 197, 94, 0.16);
+    color: #4ade80;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.cl-card-body,
+#whats-new-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cl-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.cl-entry-text {
+    color: #cbd5e1;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.cl-entry-text strong {
+    color: #f1f5f9;
+}
+
+.cl-badge {
+    flex-shrink: 0;
+    display: inline-block;
+    min-width: 78px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 4px 8px;
+    border-radius: 6px;
+    margin-top: 1px;
+}
+
+.cl-badge--nyhet {
+    background: rgba(34, 197, 94, 0.16);
+    color: #4ade80;
+}
+
+.cl-badge--feilretting {
+    background: rgba(245, 158, 11, 0.16);
+    color: #fbbf24;
+}
+
+.cl-badge--forbedring {
+    background: rgba(139, 92, 246, 0.18);
+    color: #c4b5fd;
+}
+
+.cl-badge--stabilitet {
+    background: rgba(59, 130, 246, 0.16);
+    color: #93c5fd;
+}
+
+#whats-new-list {
+    gap: 14px;
 }

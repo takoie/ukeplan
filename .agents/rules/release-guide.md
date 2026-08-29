@@ -9,6 +9,9 @@ Oppdater versjonsnummeret konsekvent i følgende filer:
 3. `src-tauri/Cargo.toml`: `version = "<VERSJON>"`
 4. `index.html`: begge versjonsmerkene (`#app-version-badge` og `#sidebar-version`) til `v<VERSJON>`
 
+## 1b. Endringslogg
+Oppdater `changelog.json` i repo-roten: legg en **ny blokk øverst** i `versions`-lista med `version`, `date` (ISO `ÅÅÅÅ-MM-DD`) og alle endringer som `entries` med `type` (`Nyhet` | `Feilretting` | `Forbedring` | `Stabilitet`), `title` og `description`. Denne blokken driver endringslogg-visningen og «Hva er nytt»-popupen i appen. Filen skal med i `git add` (se seksjon 3).
+
 ## 2. Byggeprosessen
 Kjør:
 ```powershell
@@ -25,7 +28,7 @@ Dette kjører `node build_helper.js`, som:
 ## 3. GitHub Git & Release
 For å publisere en release:
 ```powershell
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock index.html latest.json
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock index.html latest.json changelog.json
 git commit -m "release: v<VERSJON>"
 git tag -a v<VERSJON> -m "UkeplanLager v<VERSJON>"
 git push origin main --tags

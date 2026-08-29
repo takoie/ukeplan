@@ -15,6 +15,25 @@ Når du skal lage en ny versjon (f.eks. `2.7.1`), oppdater versjonen i følgende
 - `src-tauri/Cargo.toml` (`version = "2.7.1"`)
 - `index.html` (begge versjonsmerkene: `#app-version-badge` og `#sidebar-version`, til `v2.7.1`)
 
+### 1b. Oppdater `changelog.json`
+Legg til en **ny blokk øverst** i `versions`-lista i [`changelog.json`](changelog.json):
+
+```json
+{
+  "version": "2.7.1",
+  "date": "2026-08-29",
+  "entries": [
+    { "type": "Nyhet",      "title": "Kort tittel", "description": "Utfyllende tekst." },
+    { "type": "Feilretting", "title": "…",           "description": "…" }
+  ]
+}
+```
+
+- `type` skal være én av: `Nyhet`, `Feilretting`, `Forbedring`, `Stabilitet`.
+- `date` på ISO-format (`ÅÅÅÅ-MM-DD`).
+- Denne blokken driver både **endringslogg-visningen** i appen og **«Hva er nytt»-popupen** som vises automatisk etter at en bruker har oppdatert.
+- Husk å ta med `changelog.json` i `git add`-linja i steg 3.
+
 ### 2. Kompiler og signer installasjonsfilene
 Kjør i terminalen:
 
@@ -32,7 +51,7 @@ Kjør følgende kommandoer for å pushe og opprette releasen på GitHub:
 
 ```powershell
 # 1. Commit og tagg
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock index.html latest.json
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock index.html latest.json changelog.json
 git commit -m "release: v2.7.1"
 git tag -a v2.7.1 -m "UkeplanLager v2.7.1"
 

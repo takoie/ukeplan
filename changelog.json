@@ -1,0 +1,61 @@
+{
+  "versions": [
+    {
+      "version": "2.8.0",
+      "date": "2026-08-29",
+      "entries": [
+        {
+          "type": "Nyhet",
+          "title": "\"Hva er nytt\"-popup etter oppdatering",
+          "description": "Rett etter en fullført oppdatering vises nå en egen popup med kun siste versjons endringer, til forskjell fra den fulle historikken i \"Endringer\"."
+        },
+        {
+          "type": "Nyhet",
+          "title": "Endringslogg i appen",
+          "description": "Nytt menypunkt \"Endringer\" under Innstillinger viser hele historikken, gruppert per versjon med dato og merkede endringer."
+        },
+        {
+          "type": "Forbedring",
+          "title": "Fast bredde på ukeplan-tabellen",
+          "description": "Tabellen for tema, aktivitet og arbeidskrav har nå en låst bredde i både planlegger og visning, slik at eksport og snapshot ikke lenger påvirkes av vindus- eller fullskjermstørrelse."
+        },
+        {
+          "type": "Forbedring",
+          "title": "Mer uniformt design",
+          "description": "Sidehoder med ikon, samlet kortstil, menyvalg og knapper er harmonisert på tvers av appen for et roligere og mer helhetlig uttrykk."
+        },
+        {
+          "type": "Forbedring",
+          "title": "Kjøligere bakgrunn",
+          "description": "Bakgrunnsgradienten er endret fra en rødlig tone til en roligere, lysere blåfarge."
+        },
+        {
+          "type": "Forbedring",
+          "title": "Tydeligere ramme på ukeplankortet",
+          "description": "Kortet får en tynn ramme i headerfargen på topp, bunn og høyre side, slik at tabellen lukkes pent – også når headeren er skjult."
+        }
+      ]
+    },
+    {
+      "version": "2.7.5",
+      "date": "2026-08-23",
+      "entries": [
+        {
+          "type": "Feilretting",
+          "title": "PNG-bilder i PDF",
+          "description": "PNG-dekoding er aktivert i PDF-eksporten, slik at innsatte PNG-bilder kommer med i utskriften."
+        },
+        {
+          "type": "Forbedring",
+          "title": "Bedre PDF-layout",
+          "description": "Flere ukeplankort pakkes per side, og hver side får tittel og bunntekst."
+        },
+        {
+          "type": "Forbedring",
+          "title": "Nytt verktøylinje-design",
+          "description": "Verktøylinjene i redigering og visning er redesignet for et ryddigere uttrykk."
+        }
+      ]
+    }
+  ]
+}
