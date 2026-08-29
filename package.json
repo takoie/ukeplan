@@ -1,7 +1,7 @@
 {
   "name": "ukeplanlager",
   "productName": "UkeplanLager",
-  "version": "2.7.5",
+  "version": "2.8.0",
   "description": "Verktøy for ukeplanlegging",
   "scripts": {
     "predev": "node copy_icons.js",
