@@ -50,19 +50,28 @@ Dette klargjør ikoner og ressurser, kompilerer Tauri/Rust-koden (inkludert det 
 Kjør følgende kommandoer for å pushe og opprette releasen på GitHub:
 
 ```powershell
-# 1. Commit og tagg
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock index.html latest.json changelog.json
+# 1. Commit og tagg  (latest.json er .gitignore-t og skal IKKE med her)
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock index.html changelog.json
 git commit -m "release: v2.7.1"
 git tag -a v2.7.1 -m "UkeplanLager v2.7.1"
 
 # 2. Push til GitHub
 git push origin main --tags
 
-# 3. Last opp installasjonsfilen og latest.json til GitHub Releases
-gh release create v2.7.1 "src-tauri/target_build/release/bundle/nsis/UkeplanLager_2.7.1_x64-setup.exe" "latest.json" --title "UkeplanLager v2.7.1" --notes "### 🚀 Endringslogg for v2.7.1"
+# 3. Last opp installasjonsfilen, signaturen og latest.json til GitHub Releases
+gh release create v2.7.1 "src-tauri/target_build/release/bundle/nsis/UkeplanLager_2.7.1_x64-setup.exe" "src-tauri/target_build/release/bundle/nsis/UkeplanLager_2.7.1_x64-setup.exe.sig" "latest.json" --title "UkeplanLager v2.7.1" --notes "### 🚀 Endringslogg for v2.7.1"
 ```
 
 Eksisterende installasjoner oppdager den nye releasen automatisk via in-app-oppdatereren.
+
+### 4. Oppdater kunnskapsgrafen (graphify)
+Etter at releasen er publisert, oppdater den strukturdrevne kunnskapsgrafen slik at den speiler den nye koden:
+
+```powershell
+graphify . --code-only; graphify cluster-only .
+```
+
+`graphify-out/` er `.gitignore`-t, så dette lager ingen commits — det er et lokalt vedlikeholdssteg som holder arkitekturgrafen i synk med `main`. Dette steget skal alltid kjøres som en del av release-prosessen.
 
 ---
 

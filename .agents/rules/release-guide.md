@@ -28,14 +28,25 @@ Dette kjører `node build_helper.js`, som:
 ## 3. GitHub Git & Release
 For å publisere en release:
 ```powershell
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock index.html latest.json changelog.json
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock index.html changelog.json
 git commit -m "release: v<VERSJON>"
 git tag -a v<VERSJON> -m "UkeplanLager v<VERSJON>"
 git push origin main --tags
-gh release create v<VERSJON> "src-tauri/target_build/release/bundle/nsis/UkeplanLager_<VERSJON>_x64-setup.exe" "latest.json" --title "UkeplanLager v<VERSJON>" --notes "<Endringsbeskrivelse>"
+gh release create v<VERSJON> "src-tauri/target_build/release/bundle/nsis/UkeplanLager_<VERSJON>_x64-setup.exe" "src-tauri/target_build/release/bundle/nsis/UkeplanLager_<VERSJON>_x64-setup.exe.sig" "latest.json" --title "UkeplanLager v<VERSJON>" --notes "<Endringsbeskrivelse>"
 ```
 
+`latest.json` er `.gitignore`-t og skal **ikke** med i `git add` — den lastes kun opp som release-asset (in-app-oppdatereren henter den fra `releases/latest/download/latest.json`).
+
 Dette trigger at eksisterende installasjoner automatisk oppdager den nye versjonen via GitHub releases og oppdaterer seg selv.
+
+## 4. Oppdater kunnskapsgrafen (graphify)
+Etter at releasen er publisert, kjør alltid en oppdatering av den strukturdrevne kunnskapsgrafen så den speiler den nye koden:
+
+```powershell
+graphify . --code-only; graphify cluster-only .
+```
+
+`graphify-out/` er `.gitignore`-t, så dette lager ingen commits — det er et obligatorisk lokalt vedlikeholdssteg i release-prosessen.
 
 ## Viktig: GitHub Actions-workflowen kjører ikke automatisk lenger
 `.github/workflows/release.yml` trigget tidligere automatisk ved push av en `v*`-tag eller push til `main`, men **feilet alltid** på signeringssteget («A public key has been found, but no private key») fordi `TAURI_SIGNING_PRIVATE_KEY` ikke er satt som GitHub Secret i repoet (bekreftet på flere kjøringer: `v2.6.0` og `v2.7.0`). Den automatiske triggeren er derfor fjernet — workflowen har nå kun `workflow_dispatch` og kjører aldri av seg selv ved push. Ikke vent på, poll, eller anta at en push trigger noen CI-jobb — den lokale byggingen og `gh release create` over er det som faktisk publiserer releasen. Brukeren har eksplisitt bedt om at releaser bygges lokalt, ikke via CI, og at workflowen ikke skal kjøre automatisk på GitHub.
