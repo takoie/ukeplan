@@ -1,6 +1,32 @@
 {
   "versions": [
     {
+      "version": "2.8.1",
+      "date": "2026-09-10",
+      "entries": [
+        {
+          "type": "Nyhet",
+          "title": "Periodeplan – felles innhold for flere uker",
+          "description": "Ny «Periodeplan»-knapp i Planlegger: velg et ukeintervall og skriv planen én gang – tekst og bilder legges ut på alle ukene. Endrer du innholdet i én av ukene senere, oppdateres resten automatisk."
+        },
+        {
+          "type": "Nyhet",
+          "title": "Intervall vises i Visning og PDF",
+          "description": "Uker som hører til en periodeplan merkes med hele intervallet (for eksempel «UKE 38–41») i visningskortet og i PDF-eksporten. Vanlige ukeplaner vises som før."
+        },
+        {
+          "type": "Forbedring",
+          "title": "Fleksibel frakobling av periodeplan",
+          "description": "Du kan enten ta én enkelt uke ut av en periodeplan eller oppløse hele perioden. Innholdet blir uansett stående i hver uke."
+        },
+        {
+          "type": "Feilretting",
+          "title": "Nullstilte uker gir ikke lenger falskt varsel",
+          "description": "Når en periodeplan opprettes over uker som bare inneholder standardmalen, tas de nå med automatisk uten unødvendig «har innhold fra før»-varsel."
+        }
+      ]
+    },
+    {
       "version": "2.8.0",
       "date": "2026-08-29",
       "entries": [
