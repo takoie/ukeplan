@@ -540,6 +540,12 @@ closeBtns.forEach(btn => btn.onclick = () => {
     if (mPdf) mPdf.style.display = "none";
     const mWhatsNew = document.getElementById("modal-whats-new");
     if (mWhatsNew) mWhatsNew.style.display = "none";
+    const mKoll = document.getElementById("modal-periode-kollisjon");
+    if (mKoll) mKoll.style.display = "none";
+    const mUker = document.getElementById("modal-periode-uker");
+    if (mUker) mUker.style.display = "none";
+    const mFrakobling = document.getElementById("modal-periode-frakobling");
+    if (mFrakobling) mFrakobling.style.display = "none";
 });
 window.onclick = (e) => { if (e.target.classList.contains('modal')) e.target.style.display = "none"; };
 
@@ -681,6 +687,7 @@ async function loadPlan() {
         activeEditorAar = null;
         isEditorDirty = false;
         isLoadingData = false;
+        oppdaterPeriodeBanner(null);
         return;
     }
 
@@ -738,6 +745,11 @@ async function loadPlan() {
                 });
             }
         }
+        oppdaterPeriodeBanner(null);
+        try {
+            const periode = await invokeCommand('hent_periode_for_uke', { fag: fagNavn, ar: Number(aar), uke: Number(uke) });
+            oppdaterPeriodeBanner(periode);
+        } catch (e) { /* banner er ikke kritisk */ }
     } catch (e) {
         console.error(e);
     } finally {
@@ -769,6 +781,17 @@ async function utførLagring(erAutolagring = false) {
             arbeidskrav: quillKrav.root.innerHTML
         };
         await invokeCommand('lagre_plan', payload);
+        // Levende kobling: hvis uka er del av en periodeplan, oppdater de andre ukene.
+        try {
+            await invokeCommand('propager_til_periode', {
+                fag: payload.fag,
+                ar: payload.ar,
+                uke: payload.uke,
+                tema: payload.tema,
+                aktivitet: payload.aktivitet,
+                arbeidskrav: payload.arbeidskrav
+            });
+        } catch (e) { console.error('Kunne ikke propagere til periodeplan:', e); }
         isEditorDirty = false;
         if (!erAutolagring) {
             showToast('Ukeplan lagret');
@@ -1228,7 +1251,10 @@ function buildCardHtml(d, hideHeader = false, cardId = null) {
     const sprak = fagObj ? fagObj.sprak || "Bokmål" : "Bokmål";
     const cfg = SPRAK_CONFIG[sprak] || SPRAK_CONFIG["Bokmål"];
 
-    const headerHtml = hideHeader ? '' : `<div class="preview-header"><span>${d.fag}</span><span>${cfg.previewHeaders.weekPrefix} ${d.uke}</span></div>`;
+    const ukeTekst = (d._periode && d._periode.startUke !== d._periode.sluttUke)
+        ? `${d._periode.startUke}–${d._periode.sluttUke}`
+        : `${d.uke}`;
+    const headerHtml = hideHeader ? '' : `<div class="preview-header"><span>${d.fag}</span><span>${cfg.previewHeaders.weekPrefix} ${ukeTekst}</span></div>`;
     const idAttr = cardId ? `id="${cardId}"` : '';
     return `<div ${idAttr} class="preview-card" style="margin-bottom: 0; background:#ffffff; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-radius:0; overflow:hidden;">${headerHtml}<div class="preview-grid"><div class="preview-section" style="border-left: 5px solid #faa61a;"><span class="preview-h" style="color: #faa61a;">${cfg.previewHeaders.topic}</span><div style="white-space: pre-wrap;">${d.tema || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #3ba55c;"><span class="preview-h" style="color: #3ba55c;">${cfg.previewHeaders.activities}</span><div style="white-space: pre-wrap;">${d.aktivitet || '-'}</div></div><div class="preview-section" style="border-left: 5px solid #e67e22;"><span class="preview-h" style="color: #e67e22;">${cfg.previewHeaders.homework}</span><div style="white-space: pre-wrap;">${d.arbeidskrav || '-'}</div></div></div></div>`;
 }
@@ -1262,6 +1288,13 @@ async function renderPreview(c, d = null) {
         try {
             const promises = subjects.map(f => invokeCommand('hent_plan', { uke: Number(uke), ar: Number(aar), fag: f.navn }).catch(() => null));
             const plans = await Promise.all(promises);
+            await Promise.all(plans.map(async (plan) => {
+                if (!plan) return;
+                try {
+                    const pi = await invokeCommand('hent_periode_for_uke', { fag: plan.fag, ar: Number(aar), uke: Number(uke) });
+                    if (pi) plan._periode = pi;
+                } catch (e) { /* intervall i header er ikke kritisk */ }
+            }));
 
             el.innerHTML = '';
             let count = 0;
@@ -1302,6 +1335,12 @@ async function renderPreview(c, d = null) {
                 const previewUke = document.getElementById('preview-uke-input')?.value || document.getElementById('uke-input').value;
                 const previewAar = document.getElementById('aar-input').value;
                 d = await invokeCommand('hent_plan', { uke: Number(previewUke), ar: Number(previewAar), fag: fag });
+                if (d) {
+                    try {
+                        const pi = await invokeCommand('hent_periode_for_uke', { fag: fag, ar: Number(previewAar), uke: Number(previewUke) });
+                        if (pi) d._periode = pi;
+                    } catch (e) { /* intervall i header er ikke kritisk */ }
+                }
             }
         } catch (e) { }
     }
@@ -1470,6 +1509,13 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
         const plans = await Promise.all(
             fagNavn.map(fag => invokeCommand('hent_plan', { uke: Number(uke), ar: Number(aar), fag }).catch(() => null))
         );
+        await Promise.all(plans.map(async (plan) => {
+            if (!plan) return;
+            try {
+                const pi = await invokeCommand('hent_periode_for_uke', { fag: plan.fag, ar: Number(aar), uke: Number(uke) });
+                if (pi) plan._periode = pi;
+            } catch (e) { /* intervall i header er ikke kritisk */ }
+        }));
         const gyldigePlaner = plans.filter(p => p && (p.tema || p.aktivitet || p.arbeidskrav));
 
         if (gyldigePlaner.length === 0) {
@@ -1497,6 +1543,8 @@ document.getElementById('pdf-export-start-btn')?.addEventListener('click', async
             return;
         }
 
+        // Tittelsiden viser alltid den valgte uka. Om et fag er en periodeplan,
+        // kommer intervallet fram i kort-headeren via buildCardHtml.
         const tittelKey = await tittelBildeNokkel(uke, bilder);
         const footerKey = await footerBildeNokkel(bilder);
 
@@ -1888,6 +1936,187 @@ document.getElementById('close-notification-btn')?.addEventListener('click', () 
 
 document.getElementById('check-update-manual-btn')?.addEventListener('click', () => {
     checkTauriUpdate(true);
+});
+
+
+// ============================================================================
+// PERIODEPLAN – flere uker som deler innhold («levende kobling»).
+// Knapp i Planlegger: velg uker → skriv som normalt. Endring i én uke
+// oppdaterer resten. Innholdet ligger materialisert i hver ukesrad, så
+// Visning/PDF/deling er uendret.
+// ============================================================================
+
+let periodeUkerModus = 'ny';    // 'ny' | 'endre'
+let periodeEndrerId = null;      // periode_id ved 'endre'
+let periodePendingUker = null;   // ventende valg mens kollisjonsdialogen er åpen
+let sistePeriodeInfo = null;     // { periodeId, startUke, sluttUke } for gjeldende uke
+
+function periodeEditorInnhold() {
+    return {
+        tema: document.getElementById('tema-input').value || null,
+        aktivitet: quillAkt.root.innerHTML,
+        arbeidskrav: quillKrav.root.innerHTML
+    };
+}
+
+function apnePeriodeUkerModal(modus, startUke, sluttUke, periodeId) {
+    if (!activeEditorFag) { showToast('Velg et fag først', true); return; }
+    periodeUkerModus = modus;
+    periodeEndrerId = periodeId || null;
+    const gjeldendeUke = parseInt(document.getElementById('uke-input').value) || getRealWeek();
+    document.getElementById('modal-periode-uker-tittel').innerHTML = modus === 'endre'
+        ? '<i class="fas fa-layer-group" style="color:#818cf8;"></i> Endre uker for periodeplanen'
+        : '<i class="fas fa-layer-group" style="color:#818cf8;"></i> Lag periodeplan';
+    document.getElementById('periode-uker-start').value = startUke || gjeldendeUke;
+    document.getElementById('periode-uker-slutt').value = sluttUke || Math.min(gjeldendeUke + 3, 53);
+    document.getElementById('periode-uker-status').textContent = '';
+    document.getElementById('modal-periode-uker').style.display = 'block';
+}
+
+async function bekreftPeriodeUker() {
+    const status = document.getElementById('periode-uker-status');
+    const fag = activeEditorFag;
+    const aar = Number(activeEditorAar) || new Date().getFullYear();
+    const startUke = parseInt(document.getElementById('periode-uker-start').value);
+    const sluttUke = parseInt(document.getElementById('periode-uker-slutt').value);
+
+    if (!fag) { status.textContent = 'Velg et fag først.'; return; }
+    if (!startUke || !sluttUke || startUke < 1 || sluttUke > 53) { status.textContent = 'Oppgi gyldige uker (1–53).'; return; }
+    if (startUke > sluttUke) { status.textContent = 'Fra-uke kan ikke være etter til-uke.'; return; }
+
+    // Flush eventuell ulagret editor-tekst først, så DB-en er fersk.
+    if (autoSaveTimer || isEditorDirty) {
+        if (autoSaveTimer) clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+        await utførLagring(true);
+    }
+
+    try {
+        const kollisjon = await invokeCommand('sjekk_periode_kollisjon', {
+            fag: fag, ar: aar, startUke: startUke, sluttUke: sluttUke,
+            ekskluderPeriodeId: periodeUkerModus === 'endre' ? periodeEndrerId : null
+        });
+        const p = { modus: periodeUkerModus, fag, aar, startUke, sluttUke, periodeId: periodeEndrerId };
+        if (kollisjon && kollisjon.length > 0) {
+            periodePendingUker = p;
+            visPeriodeKollisjon(kollisjon);
+        } else {
+            await utforPeriode(p, []);
+        }
+    } catch (e) {
+        console.error(e);
+        status.textContent = 'Feil: ' + e;
+    }
+}
+
+function visPeriodeKollisjon(uker) {
+    const liste = document.getElementById('periode-kollisjon-liste');
+    liste.innerHTML = '';
+    uker.forEach(u => {
+        const rad = document.createElement('label');
+        rad.className = 'periode-kollisjon-rad';
+        rad.innerHTML = `<input type="checkbox" value="${u}" checked><span>Uke ${u} – overskriv eksisterende innhold</span>`;
+        liste.appendChild(rad);
+    });
+    document.getElementById('modal-periode-uker').style.display = 'none';
+    document.getElementById('modal-periode-kollisjon').style.display = 'block';
+}
+
+async function utforPeriode(p, overskrivUker) {
+    const innhold = periodeEditorInnhold();
+    const args = {
+        fag: p.fag, ar: p.aar,
+        startUke: p.startUke, sluttUke: p.sluttUke,
+        tema: innhold.tema, aktivitet: innhold.aktivitet, arbeidskrav: innhold.arbeidskrav,
+        overskrivUker: overskrivUker
+    };
+    try {
+        if (p.modus === 'endre') {
+            await invokeCommand('endre_periode', { ...args, periodeId: p.periodeId });
+        } else {
+            await invokeCommand('opprett_periode', args);
+        }
+        document.getElementById('modal-periode-uker').style.display = 'none';
+        document.getElementById('modal-periode-kollisjon').style.display = 'none';
+        showToast(p.modus === 'endre' ? 'Periodeplanen oppdatert' : `Periodeplan for uke ${p.startUke}–${p.sluttUke} opprettet`);
+        await loadPlan();
+    } catch (e) {
+        console.error(e);
+        showToast('Feil ved lagring av periodeplan', true);
+    }
+}
+
+function oppdaterPeriodeBanner(info) {
+    const banner = document.getElementById('periode-banner');
+    if (!banner) return;
+    sistePeriodeInfo = info || null;
+    if (!info) { banner.style.display = 'none'; return; }
+    document.getElementById('periode-banner-tekst').textContent =
+        `Uke ${activeEditorUke} er del av en periodeplan (uke ${info.startUke}–${info.sluttUke}). Det du skriver her oppdaterer alle ukene i intervallet.`;
+    banner.style.display = 'flex';
+}
+
+function apnePeriodeFrakoblingModal() {
+    if (!sistePeriodeInfo || !activeEditorFag) return;
+    document.getElementById('periode-frakobling-uke').textContent = activeEditorUke;
+    document.getElementById('periode-frakobling-intervall').textContent =
+        `${sistePeriodeInfo.startUke}–${sistePeriodeInfo.sluttUke}`;
+    document.getElementById('modal-periode-frakobling').style.display = 'block';
+}
+
+async function utforFrakobling(kommando, args, melding) {
+    document.getElementById('modal-periode-frakobling').style.display = 'none';
+    try {
+        await invokeCommand(kommando, args);
+        showToast(melding);
+        await loadPlan();
+    } catch (e) {
+        console.error(e);
+        showToast('Kunne ikke fjerne kobling', true);
+    }
+}
+
+document.getElementById('periodeplan-btn')?.addEventListener('click', () => {
+    if (sistePeriodeInfo) {
+        apnePeriodeUkerModal('endre', sistePeriodeInfo.startUke, sistePeriodeInfo.sluttUke, sistePeriodeInfo.periodeId);
+    } else {
+        apnePeriodeUkerModal('ny');
+    }
+});
+document.getElementById('periode-endre-btn')?.addEventListener('click', () => {
+    if (sistePeriodeInfo) apnePeriodeUkerModal('endre', sistePeriodeInfo.startUke, sistePeriodeInfo.sluttUke, sistePeriodeInfo.periodeId);
+});
+document.getElementById('periode-koble-fra-btn')?.addEventListener('click', apnePeriodeFrakoblingModal);
+document.getElementById('periode-frakobling-avbryt-btn')?.addEventListener('click', () => {
+    document.getElementById('modal-periode-frakobling').style.display = 'none';
+});
+document.getElementById('periode-frakobling-en-btn')?.addEventListener('click', () => {
+    utforFrakobling('los_uke_fra_periode',
+        { fag: activeEditorFag, ar: Number(activeEditorAar), uke: Number(activeEditorUke) },
+        `Uke ${activeEditorUke} er tatt ut av periodeplanen`);
+});
+document.getElementById('periode-frakobling-alle-btn')?.addEventListener('click', () => {
+    if (!sistePeriodeInfo) return;
+    utforFrakobling('koble_fra_periode',
+        { fag: activeEditorFag, ar: Number(activeEditorAar), periodeId: sistePeriodeInfo.periodeId },
+        'Periodeplanen er oppløst');
+});
+document.getElementById('periode-uker-avbryt-btn')?.addEventListener('click', () => {
+    document.getElementById('modal-periode-uker').style.display = 'none';
+});
+document.getElementById('periode-uker-ok-btn')?.addEventListener('click', bekreftPeriodeUker);
+document.getElementById('periode-kollisjon-avbryt-btn')?.addEventListener('click', () => {
+    document.getElementById('modal-periode-kollisjon').style.display = 'none';
+    periodePendingUker = null;
+});
+document.getElementById('periode-kollisjon-alle-btn')?.addEventListener('click', () => {
+    document.querySelectorAll('#periode-kollisjon-liste input[type="checkbox"]').forEach(cb => cb.checked = true);
+});
+document.getElementById('periode-kollisjon-bekreft-btn')?.addEventListener('click', () => {
+    if (!periodePendingUker) return;
+    const valgte = [...document.querySelectorAll('#periode-kollisjon-liste input[type="checkbox"]:checked')].map(cb => Number(cb.value));
+    utforPeriode(periodePendingUker, valgte);
+    periodePendingUker = null;
 });
 
 async function initApp() {

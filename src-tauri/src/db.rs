@@ -86,6 +86,12 @@ pub fn ensure_schema(conn: &Connection) -> rusqlite::Result<()> {
         conn.execute("ALTER TABLE fag ADD COLUMN sprak TEXT DEFAULT 'Bokmål'", [])?;
         conn.execute("UPDATE fag SET sprak = 'Bokmål' WHERE sprak IS NULL", [])?;
     }
+    // Grupperer flere ukesrader i samme «periodeplan». Alle uker med samme
+    // periode_id (for samme fag/år) deler innhold: redigering av én uke
+    // propageres til de andre. Innholdet ligger fortsatt i hver planer-rad.
+    if !column_exists(conn, "planer", "periode_id")? {
+        conn.execute("ALTER TABLE planer ADD COLUMN periode_id INTEGER", [])?;
+    }
     Ok(())
 }
 
@@ -140,6 +146,16 @@ pub struct PlanForrige {
     pub arbeidskrav: Option<String>,
     #[serde(rename = "visningsUke")]
     pub visnings_uke: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PeriodeInfo {
+    #[serde(rename = "periodeId")]
+    pub periode_id: i64,
+    #[serde(rename = "startUke")]
+    pub start_uke: i64,
+    #[serde(rename = "sluttUke")]
+    pub slutt_uke: i64,
 }
 
 #[derive(Debug, Serialize)]
